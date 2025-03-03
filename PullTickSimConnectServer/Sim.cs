@@ -62,7 +62,7 @@ public class Sim {
 		MainWindow = mainWindow;
 	}
 
-	public object SyncRoot { get; init; } = new();
+	object SyncRoot { get; init; } = new();
 
 	MainWindow MainWindow;
 	SimConnect? SimConnect = null;
@@ -84,7 +84,7 @@ public class Sim {
 		if (data.dwRequestID == 0) {
 			var simData = (SimData) data.dwData[0];
 
-			lock (MainWindow.SyncRoot) {
+			lock (MainWindow.PacketsSyncRoot) {
 				MainWindow.AircraftPacket.latitude = (float) simData.Latitude;
 				MainWindow.AircraftPacket.longitude = (float) simData.Longitude;
 

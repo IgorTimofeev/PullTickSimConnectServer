@@ -12,32 +12,24 @@ public partial class MainWindow : Window {
 		InitializeComponent();
 
 		Sim = new(this);
+		Tcp = new(this);
 
 		Loaded += (s, e) => {
 			Sim.Start();
-
-			TcpStart();
+			Tcp.Start();
 		};
 	}
 
 
-	public object SyncRoot { get; init; } = new object();
+	public object PacketsSyncRoot { get; init; } = new object();
 
 	public RemotePacket RemotePacket;
 	public AircraftPacket AircraftPacket;
 
-	TcpListener TcpListener = new(IPAddress.Any, 25569);
-
 	Sim Sim;
+	Tcp Tcp;
 
-	void TcpStart() {
-		new Thread(TcpLoop) {
-			Name = "TCP server thread",
-			IsBackground = true
-		}.Start();
-	}
-
-	void HandleRemotePacket() {
+	public void HandleRemotePacket() {
 		Sim.SendThrottle1Event(RemotePacket.throttle1);
 		Sim.SendThrottle2Event(RemotePacket.throttle2);
 
@@ -47,107 +39,6 @@ public partial class MainWindow : Window {
 
 		Sim.SendFlapsEvent(RemotePacket.flaps);
 		Sim.SendSpoilersEvent(RemotePacket.spoilers);
-	}
-
-	unsafe void HandleClient(TcpClient client) {
-		new Thread(() => {
-			Debug.WriteLine("[TCP] Got client");
-
-			using var clientStream = client.GetStream();
-
-			try {
-				byte[] buffer;
-
-				while (true) {
-					//Debug.WriteLine("[TCP] Reading remote packet");
-
-					buffer = new byte[sizeof(RemotePacket)];
-					clientStream.ReadExactly(buffer, 0, buffer.Length);
-
-					lock (SyncRoot) {
-						RemotePacket = BytesToStruct<RemotePacket>(buffer);
-					}
-
-					//LogRemotePacket();
-					HandleRemotePacket();
-
-					// Writing
-					//Debug.WriteLine("[TCP] Sending aircraft packet");
-
-					buffer = new byte[sizeof(AircraftPacket)];
-
-					lock (SyncRoot) {
-						buffer = StructToBytes(AircraftPacket);
-					}
-
-					clientStream.Write(buffer, 0, buffer.Length);
-				}
-
-			}
-			catch (Exception ex) {
-
-			}
-		}) {
-			IsBackground = true
-		}.Start();
-	}
-
-	void TcpLoop() {
-		TcpListener.Start();
-
-		while (true) {
-			try {
-				Debug.WriteLine("[TCP] Waiting for clients");
-
-				var client = TcpListener.AcceptTcpClient();
-
-				HandleClient(client);
-			}
-			catch (Exception ex) {
-
-			}
-		}
-	}
-
-	public static byte[] StructToBytes<T>(T str) where T : struct {
-		int size = Marshal.SizeOf(str);
-
-		byte[] arr = new byte[size];
-
-		GCHandle h = default;
-
-		try {
-			h = GCHandle.Alloc(arr, GCHandleType.Pinned);
-
-			Marshal.StructureToPtr<T>(str, h.AddrOfPinnedObject(), false);
-		}
-		finally {
-			if (h.IsAllocated) {
-				h.Free();
-			}
-		}
-
-		return arr;
-	}
-
-	public static T BytesToStruct<T>(byte[] arr) where T : struct {
-		T str = default;
-
-		GCHandle h = default;
-
-		try {
-			h = GCHandle.Alloc(arr, GCHandleType.Pinned);
-
-			str = Marshal.PtrToStructure<T>(h.AddrOfPinnedObject());
-
-		}
-		finally {
-			if (h.IsAllocated) {
-				h.Free();
-			}
-		}
-
-		return str;
 	}
 
 	public void LogRemotePacket() {
