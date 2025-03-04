@@ -60,20 +60,144 @@ public enum SimNotificationGroup {
 public class Sim {
 	public Sim(MainWindow mainWindow) {
 		MainWindow = mainWindow;
+
+		ReconnectTimer = new(
+			TimeSpan.FromSeconds(3),
+			DispatcherPriority.ApplicationIdle,
+			(s, e) => {
+				if (IsStarted) {
+					ReconnectTimer!.Stop();
+				}
+				else {
+					Start();
+				}
+			},
+			MainWindow.Dispatcher
+		);
+
+		ReconnectTimer.Stop();
 	}
 
-	object SyncRoot { get; init; } = new();
+	public bool IsStarted { get; private set; } = false;
+	public bool IsConnected { get; private set; } = false;
 
 	MainWindow MainWindow;
 	SimConnect? SimConnect = null;
 	Thread? Thread = null;
+	DispatcherTimer ReconnectTimer;
+
+	object SyncRoot { get; init; } = new();
+
+	public void Start() {
+		if (IsStarted)
+			return;
+
+		IsStarted = true;
+		ReconnectTimer.Stop();
+
+		MainWindow.Dispatcher.BeginInvoke(
+			() => {
+				try {
+					SimConnect = new(
+						"Managed Data Request",
+						new WindowInteropHelper(MainWindow).Handle,
+						0x0402,
+						null,
+						0
+					);
+
+					SimConnect!.OnRecvOpen += new(OnRecvOpen);
+					SimConnect.OnRecvQuit += new(OnRecvQuit);
+					SimConnect.OnRecvException += new(OnRecvException);
+					SimConnect.OnRecvSimobjectDataBytype += new(OnRecvSimobjectDataBytype);
+
+					// Throttle 1-2
+					SimConnect.AddToDataDefinition(SimDefinition.SimData, "PLANE LATITUDE", "radians", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+					SimConnect.AddToDataDefinition(SimDefinition.SimData, "PLANE LONGITUDE", "radians", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+
+					SimConnect.AddToDataDefinition(SimDefinition.SimData, "PLANE PITCH DEGREES", "radians", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+					SimConnect.AddToDataDefinition(SimDefinition.SimData, "PLANE HEADING DEGREES MAGNETIC", "radians", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+					SimConnect.AddToDataDefinition(SimDefinition.SimData, "PLANE BANK DEGREES", "radians", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+
+					SimConnect.AddToDataDefinition(SimDefinition.SimData, "PLANE ALTITUDE", "feet", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+					SimConnect.AddToDataDefinition(SimDefinition.SimData, "AIRSPEED INDICATED", "knots", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+
+					SimConnect.AddToDataDefinition(SimDefinition.SimData, "BAROMETER PRESSURE", "millibars", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+					SimConnect.AddToDataDefinition(SimDefinition.SimData, "AMBIENT TEMPERATURE", "celsius", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+
+					SimConnect.RegisterDataDefineStruct<SimData>(SimDefinition.SimData);
+
+					Thread = new(() => {
+						try {
+							while (true) {
+								lock (SyncRoot) {
+									SimConnect!.ReceiveMessage();
+
+									SimConnect.RequestDataOnSimObjectType(
+										SimDataRequest.Request1,
+										SimDefinition.SimData,
+										0,
+										SIMCONNECT_SIMOBJECT_TYPE.USER
+									);
+								}
+
+								Thread.Sleep(1000 / 30);
+							}
+						}
+						catch (ThreadInterruptedException) {
+
+						}
+						catch (Exception e) {
+							Restart();
+						}
+					}) {
+						IsBackground = true
+					};
+
+					Thread.Start();
+				}
+				catch (Exception ex) {
+					Restart();
+				}
+			},
+			DispatcherPriority.ApplicationIdle
+		);
+	}
+
+	void PrepareForStop() {
+		if (!IsStarted)
+			return;
+
+		IsStarted = false;
+		IsConnected = false;
+
+		Thread?.Interrupt();
+		Thread = null;
+
+		SimConnect?.Dispose();
+		SimConnect = null;
+	}
+
+	public void Stop() {
+		PrepareForStop();
+
+		ReconnectTimer.Stop();
+	}
+
+	void Restart() {
+		PrepareForStop();
+
+		ReconnectTimer.Start();
+	}
+
+	// ----------------------------------------- Callbacks -----------------------------------------
 
 	void OnRecvException(SimConnect sender, SIMCONNECT_RECV_EXCEPTION data) {
 
 	}
 
 	void OnRecvOpen(SimConnect sender, SIMCONNECT_RECV_OPEN data) {
-
+		IsConnected = true;
 	}
 
 	void OnRecvQuit(SimConnect sender, SIMCONNECT_RECV data) {
@@ -106,77 +230,12 @@ public class Sim {
 		}
 	}
 
-	public void Start() {
-		SimConnect = new(
-			"Managed Data Request",
-			new WindowInteropHelper(MainWindow).Handle,
-			0x0402,
-			null,
-			0
-		);
-
-		SimConnect.OnRecvOpen += new(OnRecvOpen);
-		SimConnect.OnRecvQuit += new(OnRecvQuit);
-		SimConnect.OnRecvException += new(OnRecvException);
-		SimConnect.OnRecvSimobjectDataBytype += new(OnRecvSimobjectDataBytype);
-
-		// Throttle 1-2
-		SimConnect.AddToDataDefinition(SimDefinition.SimData, "PLANE LATITUDE", "radians", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
-		SimConnect.AddToDataDefinition(SimDefinition.SimData, "PLANE LONGITUDE", "radians", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
-
-		SimConnect.AddToDataDefinition(SimDefinition.SimData, "PLANE PITCH DEGREES", "radians", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
-		SimConnect.AddToDataDefinition(SimDefinition.SimData, "PLANE HEADING DEGREES MAGNETIC", "radians", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
-		SimConnect.AddToDataDefinition(SimDefinition.SimData, "PLANE BANK DEGREES", "radians", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
-
-		SimConnect.AddToDataDefinition(SimDefinition.SimData, "PLANE ALTITUDE", "feet", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
-		SimConnect.AddToDataDefinition(SimDefinition.SimData, "AIRSPEED INDICATED", "knots", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
-
-		SimConnect.AddToDataDefinition(SimDefinition.SimData, "BAROMETER PRESSURE", "millibars", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
-		SimConnect.AddToDataDefinition(SimDefinition.SimData, "AMBIENT TEMPERATURE", "celsius", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
-
-		SimConnect.RegisterDataDefineStruct<SimData>(SimDefinition.SimData);
-
-		Thread = new(() => {
-			while (true) {
-				try {
-					lock (SyncRoot) {
-						SimConnect!.ReceiveMessage();
-						SimConnect!.RequestDataOnSimObjectType(SimDataRequest.Request1, SimDefinition.SimData, 0, SIMCONNECT_SIMOBJECT_TYPE.USER);
-					}
-
-					Thread.Sleep(1000 / 30);
-				}
-				catch (ThreadInterruptedException) {
-					break;
-				}
-				catch (Exception e) {
-						
-				}
-			}
-		}) {
-			IsBackground = true
-		};
-
-		Thread.Start();
-	}
-
-	void Stop() {
-		if (SimConnect == null)
-			return;
-
-		Thread?.Interrupt();
-		Thread = null;
-
-		SimConnect.Dispose();
-		SimConnect = null;
-	}
-
 	// ----------------------------------------- Generic events -----------------------------------------
 
 	public void TransmitEvent(Enum eventID, uint value) {
 		lock (SyncRoot) {
-			SimConnect!.MapClientEventToSimEvent(eventID, eventID.ToString());
-			SimConnect.TransmitClientEvent(0U, eventID, value, SimNotificationGroup.Group0, SIMCONNECT_EVENT_FLAG.GROUPID_IS_PRIORITY);
+			SimConnect?.MapClientEventToSimEvent(eventID, eventID.ToString());
+			SimConnect?.TransmitClientEvent(0U, eventID, value, SimNotificationGroup.Group0, SIMCONNECT_EVENT_FLAG.GROUPID_IS_PRIORITY);
 		}
 	}
 
@@ -186,8 +245,8 @@ public class Sim {
 
 	public void TransmitEventEX1(Enum eventID, uint value) {
 		lock (SyncRoot) {
-			SimConnect!.MapClientEventToSimEvent(eventID, eventID.ToString());
-			SimConnect.TransmitClientEvent_EX1(0U, eventID, SimNotificationGroup.Group0, SIMCONNECT_EVENT_FLAG.GROUPID_IS_PRIORITY, value, 0, 0, 0, 0);
+			SimConnect?.MapClientEventToSimEvent(eventID, eventID.ToString());
+			SimConnect?.TransmitClientEvent_EX1(0U, eventID, SimNotificationGroup.Group0, SIMCONNECT_EVENT_FLAG.GROUPID_IS_PRIORITY, value, 0, 0, 0, 0);
 		}
 	}
 

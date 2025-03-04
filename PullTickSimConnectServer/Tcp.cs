@@ -8,103 +8,101 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace PullTickSimConnectServer {
-    public class Tcp  {
-        public Tcp(MainWindow mainWindow) {
+    public class TCP  {
+        public TCP(MainWindow mainWindow) {
 			MainWindow = mainWindow;
 		}
 
+		public bool IsStarted => AcceptTcpClientAsyncCTS is not null;
+
 		MainWindow MainWindow { get; init; }
+		TcpListener? TcpListener = null;
+		CancellationTokenSource? AcceptTcpClientAsyncCTS = null;
 
-		TcpListener TcpListener = new(IPAddress.Any, 25569);
+		public async void Start(int port) {
+			if (IsStarted)
+				return;
 
-		public void Start() {
-			new Thread(() => {
-				TcpListener.Start();
+			Debug.WriteLine("[TCP] Starting TCP server");
 
-				while (true) {
-					try {
-						Debug.WriteLine("[TCP] Waiting for clients");
+			TcpListener = new(IPAddress.Any, port);
+			AcceptTcpClientAsyncCTS = new();
 
-						var client = TcpListener.AcceptTcpClient();
+			TcpListener.Start();
 
-						HandleClient(client);
-					}
-					catch (Exception ex) {
-
-					}
-				}
-			}) {
-				Name = "TCP server thread",
-				IsBackground = true
-			}.Start();
-		}
-
-		unsafe void HandleClient(TcpClient client) {
-			new Thread(() => {
-				Debug.WriteLine("[TCP] Got client");
-
-				using var clientStream = client.GetStream();
-
+			while (true) {
 				try {
-					byte[] sendingBuffer = new byte[sizeof(RemotePacket)];
-					byte[] receivingBuffer;
-
-					while (true) {
-						do {
-							//Debug.WriteLine("[TCP] Reading remote packet");
-
-							clientStream.ReadExactly(sendingBuffer, 0, sendingBuffer.Length);
-
-							lock (MainWindow.PacketsSyncRoot) {
-								MainWindow.RemotePacket = BytesToStruct<RemotePacket>(sendingBuffer);
-							}
-
-							//LogRemotePacket();
-							MainWindow.HandleRemotePacket();
-						}
-						while (client.Available > 0);
-
-						// Writing
-						//Debug.WriteLine("[TCP] Sending aircraft packet");
-
-						lock (MainWindow.PacketsSyncRoot) {
-							receivingBuffer = StructToBytes(MainWindow.AircraftPacket);
-						}
-
-						clientStream.Write(receivingBuffer, 0, receivingBuffer.Length);
-
-						clientStream.Flush();
-
-						Thread.Sleep(1000 / 30);
-					}
-
+					HandleClient(await TcpListener.AcceptTcpClientAsync(AcceptTcpClientAsyncCTS.Token));
 				}
 				catch (Exception ex) {
-
+					Stop();
 				}
-			}) {
-				IsBackground = true
-			}.Start();
+			}
 		}
 
-		public static unsafe byte[] StructToBytes<T>(T value) where T : unmanaged {
+		public void Stop() {
+			if (!IsStarted)
+				return;
+
+			TcpListener?.Stop();
+			TcpListener?.Dispose();
+
+			AcceptTcpClientAsyncCTS?.Cancel();
+			AcceptTcpClientAsyncCTS = null;
+		}
+
+		async void HandleClient(TcpClient client) {
+			try {
+				Debug.WriteLine("[TCP] Accepting new client");
+
+				using var stream = client.GetStream();
+				var buffer = new byte[4096];
+
+				while (true) {
+					// Reading
+					do {
+						await stream.ReadExactlyAsync(buffer, 0, MainWindow.RemotePacketSize);
+
+						lock (MainWindow.PacketsSyncRoot) {
+							MainWindow.RemotePacket = BytesToStruct<RemotePacket>(buffer);
+						}
+
+						MainWindow.HandleRemotePacket();
+					}
+					while (client.Available > 0);
+
+					// Writing
+					lock (MainWindow.PacketsSyncRoot) {
+						StructToBytes(MainWindow.AircraftPacket, buffer);
+					}
+
+					stream.Write(buffer, 0, MainWindow.AircraftPacketSize);
+
+					//Thread.Sleep(1000 / 30);
+				}
+
+			}
+			catch (Exception ex) {
+					
+			}
+
+			Debug.WriteLine("[TCP] Client disconnected");
+		}
+
+		static unsafe void StructToBytes<T>(T value, byte[] buffer) where T : unmanaged {
 			var pointer = (byte*) &value;
 
-			var bytes = new byte[sizeof(T)];
-
 			for (int i = 0; i < sizeof(T); i++)
-				bytes[i] = pointer[i];
-
-			return bytes;
+				buffer[i] = pointer[i];
 		}
 
-		public static unsafe T BytesToStruct<T>(byte[] bytes) where T : unmanaged {
+		static unsafe T BytesToStruct<T>(byte[] buffer) where T : unmanaged {
 			T value = default;
 
 			var pointer = (byte*) &value;
 
 			for (int i = 0; i < sizeof(T); i++)
-				pointer[i] = bytes[i];
+				pointer[i] = buffer[i];
 
 			return value;
 		}
