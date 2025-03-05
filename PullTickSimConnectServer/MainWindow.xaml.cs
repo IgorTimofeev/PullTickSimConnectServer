@@ -93,14 +93,14 @@ public partial class MainWindow : Window {
 			: "ThemeAccent3"
 		];
 
-		StatusEffect.Opacity = state ? 0.5 : 0;
+		StatusEffect.Opacity = state ? 0.4 : 0;
 
 		StatusImage.Source = new BitmapImage(new Uri($"Resources/Images/{(state ? "LogoOn" : "LogoOff")}.png", UriKind.Relative));
 
 		BackgroundRectangle.StrokeThickness = state ? 1 : 0;
 
 		TCPStatusRun.Text = Tcp.IsStarted ? "running" : "stopped";
-		SimStatusRun.Text = Sim.IsConnected ? "linked" : "not detected";
+		SimStatusRun.Text = Sim.IsConnected ? "running" : "not found";
 	}
 
 	void TCPReconnect() {
