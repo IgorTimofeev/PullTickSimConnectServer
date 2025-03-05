@@ -11,6 +11,24 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="LogoOff.png" />
+    <None Remove="LogoOn.png" />
+    <None Remove="Resources\Fonts\Seven Segment.ttf" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Resources\Fonts\Seven Segment.ttf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Resources\Images\LogoOff.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Resources\Images\LogoOn.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
+  </ItemGroup>
+
+  <ItemGroup>
     <Reference Include="Microsoft.FlightSimulator.SimConnect">
       <HintPath>..\..\..\..\..\..\..\..\MSFS 2024 SDK\SimConnect SDK\lib\managed\Microsoft.FlightSimulator.SimConnect.dll</HintPath>
     </Reference>

@@ -4,22 +4,28 @@
              xmlns:local="clr-namespace:PullTickSimConnectServer"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
-         <SolidColorBrush x:Key="ThemeBg1" Color="#111"/>
+		<FontFamily x:Key="FontSevenSegment">/Resources/Fonts/#Seven Segment</FontFamily>
+		
+		<Color x:Key="ThemeBgColor1">#111</Color>
+        <SolidColorBrush x:Key="ThemeBg1" Color="{StaticResource ThemeBgColor1}"/>
 		<SolidColorBrush x:Key="ThemeBg2" Color="#151515"/>
 		<SolidColorBrush x:Key="ThemeBg3" Color="#191919"/>
 		<SolidColorBrush x:Key="ThemeBg4" Color="#1e1e1e"/>
 		<SolidColorBrush x:Key="ThemeBg5" Color="#222"/>
 		<SolidColorBrush x:Key="ThemeBg6" Color="#2E2E2E"/>
 								
-		<SolidColorBrush x:Key="ThemeFg1" Color="#EEE"/>
+		<Color x:Key="ThemeFgColor1">#EEE</Color>
+		<SolidColorBrush x:Key="ThemeFg1" Color="{StaticResource ThemeFgColor1}"/>
 		<SolidColorBrush x:Key="ThemeFg2" Color="#BBB"/>
 		<SolidColorBrush x:Key="ThemeFg3" Color="#999"/>
 		<SolidColorBrush x:Key="ThemeFg4" Color="#666"/>
 		<SolidColorBrush x:Key="ThemeFg5" Color="#444"/>
 
-		<SolidColorBrush x:Key="ThemeAccent1" Color="#dcad61"/>
+		<Color x:Key="ThemeAccentColor1">#dcad61</Color>
+		<SolidColorBrush x:Key="ThemeAccent1" Color="{StaticResource ThemeAccentColor1}"/>
 		<SolidColorBrush x:Key="ThemeAccent2" Color="#997e53"/>
-		<SolidColorBrush x:Key="ThemeAccent3" Color="#473c30"/>
+		<Color x:Key="ThemeAccentColor3">#473c30</Color>
+		<SolidColorBrush x:Key="ThemeAccent3" Color="{StaticResource ThemeAccentColor3}"/>
 
 		<SolidColorBrush x:Key="ThemeGood1" Color="#1db153"/>
 		<SolidColorBrush x:Key="ThemeGood2" Color="#23c95f"/>
@@ -181,64 +187,6 @@
 									<Setter TargetName="PART_VerticalScrollBar" Property="Visibility" Value="Hidden"/>
 								</MultiTrigger.Setters>
 							</MultiTrigger>
-						</ControlTemplate.Triggers>
-					</ControlTemplate>
-				</Setter.Value>
-			</Setter>
-		</Style>
-
-		<Style x:Key="TitleTextBlock" TargetType="TextBlock">
-			<Setter Property="Margin" Value="0,0,0,5"/>
-			<Setter Property="FontSize" Value="12"/>
-			<Setter Property="Foreground" Value="{StaticResource ThemeFg4}"/>
-			<Setter Property="TextWrapping" Value="Wrap"/>
-		</Style>
-
-		<Style x:Key="TextBox" TargetType="TextBox">
-			<Setter Property="SnapsToDevicePixels" Value="True"/>
-			<Setter Property="Height" Value="40"/>
-			<Setter Property="Padding" Value="10,0,10,0"/>
-			<Setter Property="VerticalContentAlignment" Value="Center"/>
-
-			<Setter Property="FontSize" Value="13"/>
-
-			<Setter Property="Background" Value="{StaticResource ThemeBg3}"/>
-			<Setter Property="Foreground" Value="{StaticResource ThemeFg2}"/>
-			<Setter Property="BorderBrush" Value="{StaticResource ThemeBg4}"/>
-			<Setter Property="CaretBrush" Value="{StaticResource ThemeCaret}"/>
-
-			<Setter Property="Template">
-				<Setter.Value>
-					<ControlTemplate TargetType="TextBox">
-						<Border
-							SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"
-							Background="{TemplateBinding Background}"
-							BorderBrush="{TemplateBinding BorderBrush}"
-							BorderThickness="1"
-							CornerRadius="5"
-						>
-							<ScrollViewer
-								x:Name="PART_ContentHost"
-								Margin="-2,0,0,0"
-								Style="{StaticResource ScrollViewer}"
-								Padding="{TemplateBinding Padding}"
-					
-								SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"
-								HorizontalScrollBarVisibility="{TemplateBinding HorizontalScrollBarVisibility}"
-								VerticalScrollBarVisibility="{TemplateBinding VerticalScrollBarVisibility}"
-								HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-								VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
-							/>
-						</Border>
-
-						<ControlTemplate.Triggers>
-							<Trigger Property="IsFocused" Value="True">
-								<Trigger.Setters>
-									<Setter Property="Background" Value="{StaticResource ThemeBg4}"/>
-									<Setter Property="Foreground" Value="{StaticResource ThemeFg1}"/>
-									<Setter Property="BorderBrush" Value="{StaticResource ThemeAccent1}"/>
-								</Trigger.Setters>
-							</Trigger>
 						</ControlTemplate.Triggers>
 					</ControlTemplate>
 				</Setter.Value>

@@ -9,8 +9,8 @@
 	
 	Title="Charlotte SimConnecto(R)"
 	
-	Width="282"
-	Height="117"
+	Width="367"
+	Height="120"
 	
 	WindowStyle="None"
 	WindowStartupLocation="CenterScreen"
@@ -29,128 +29,172 @@
 	</WindowChrome.WindowChrome>
 
 	<Grid
+		x:Name="RootGrid"
 		Margin="20"
+		Height="80"
 	>
-		<Rectangle
-			RadiusX="10"
-			RadiusY="10"
-			Fill="{StaticResource ThemeBg1}"
-			MouseDown="OnTopPanelMouseDown"
-		>
-			<Rectangle.Effect>
+		
+		<Grid>
+			<Rectangle
+				x:Name="BackgroundRectangle"
+				RadiusX="10"
+				RadiusY="10"
+				Margin="39,0,0,0"
+				Fill="{StaticResource ThemeBg2}"
+				StrokeThickness="1"
+			>
+				<Rectangle.Stroke>
+					<LinearGradientBrush>
+						<GradientStop Color="{StaticResource ThemeAccentColor3}"/>
+						<GradientStop Color="{StaticResource ThemeBgColor1}" Offset="1"/>
+					</LinearGradientBrush>
+				</Rectangle.Stroke>
+			</Rectangle>
+
+			<Ellipse
+				x:Name="StatusEllipse"
+				Width="{Binding ActualHeight, ElementName=RootGrid}"
+				HorizontalAlignment="Left"
+				Fill="{StaticResource ThemeBg2}"
+				Stroke="{StaticResource ThemeAccent1}"
+				StrokeThickness="0.4"
+			>
+				<Ellipse.Effect>
+					<DropShadowEffect
+						x:Name="StatusEffect"
+						BlurRadius="30"
+						Direction="270"
+						ShadowDepth="0"
+						Opacity="0.5"
+						Color="{StaticResource ThemeAccentColor1}"	
+					/>
+				</Ellipse.Effect>
+			</Ellipse>
+			
+			<Grid.Effect>
 				<DropShadowEffect
 					BlurRadius="20"
 					Opacity="0.3"
-					Color="#000"	
+					Direction="270"
+					ShadowDepth="0"
+					Color="#000"
 				/>
-			</Rectangle.Effect>
-		</Rectangle>
+			</Grid.Effect>
+		</Grid>
+		
+		<Image
+			x:Name="StatusImage"
+			Source="/Resources/Images/LogoOn.png"
+			RenderOptions.BitmapScalingMode="HighQuality"
+			HorizontalAlignment="Left"
+			Stretch="Uniform"
+			MouseDown="OnTopPanelMouseDown"
+		>
+			<Image.ToolTip>
+				<ToolTip
+					Style="{StaticResource ToolTip}"	
+				>
+					<StackPanel>
+						<TextBlock
+							x:Name="TCPStatusTextBlock"
+							Text="TCP server is running"
+						/>
+				
+						<TextBlock
+							x:Name="SimStatusTextBlock"
+							Margin="0,5,0,0"
+							Text="SimConnect is running"
+						/>
+					</StackPanel>
+				</ToolTip>
+			</Image.ToolTip>
+		</Image>
 
 		<Grid
-			Grid.Row="1"
-			Margin="12,5,12,0"
+			Margin="80,0,12,0"
 		>
 			<Grid.ColumnDefinitions>
-				<ColumnDefinition Width="Auto"/>
 				<ColumnDefinition/>
 				<ColumnDefinition Width="Auto"/>
 			</Grid.ColumnDefinitions>
-		
-			<StackPanel
-				
-			>
-				<TextBlock
-					Style="{StaticResource TitleTextBlock}"
-					IsHitTestVisible="false"
-					Text="Status"
-				/>
-
-				<Grid
-					Width="12"
-					Height="12"
-					Margin="0,15,0,0"
-				>
-					<Ellipse
-						x:Name="MainEllipse"
-						Fill="#00FF00"
-					/>
-
-					<Ellipse
-						Fill="{Binding Fill, ElementName=MainEllipse}"
-						Opacity="1"
-						RenderTransformOrigin="0.5,0.5"
-					>
-						<Ellipse.RenderTransform>
-							<ScaleTransform ScaleX="1" ScaleY="{Binding ScaleX, RelativeSource={RelativeSource Mode=Self}}"/>
-						</Ellipse.RenderTransform>
-	
-						<Ellipse.Triggers>
-							<EventTrigger RoutedEvent="Loaded">
-								<BeginStoryboard>
-									<Storyboard>
-										<DoubleAnimation
-											Storyboard.TargetProperty="(Ellipse.RenderTransform).(ScaleTransform.ScaleX)"
-											To="2.5"
-											Duration="0:0:2"
-											RepeatBehavior="Forever"
-										/>
-					
-										<DoubleAnimation
-											Storyboard.TargetProperty="Opacity"
-											To="0"
-											Duration="0:0:2"
-											RepeatBehavior="Forever"
-										/>
-									</Storyboard>
-								</BeginStoryboard>
-							</EventTrigger>
-						</Ellipse.Triggers>
-					</Ellipse>
-				
-					<Grid.ToolTip>
-						<ToolTip
-							Style="{StaticResource ToolTip}"	
-						>
-							<StackPanel>
-								<TextBlock
-									x:Name="TCPStatusTextBlock"
-									Text="TCP server is running"
-								/>
-								
-								<TextBlock
-									x:Name="SimStatusTextBlock"
-									Margin="0,5,0,0"
-									Text="SimConnect is running"
-								/>
-							</StackPanel>
-						</ToolTip>
-					</Grid.ToolTip>
-				</Grid>
-			</StackPanel>
 			
+			<Border
+				Background="{StaticResource ThemeBg1}"
+				BorderBrush="{StaticResource ThemeBg4}"
+				BorderThickness="1,0,1,0"
+				Margin="18,1,15,1"
+			>
+				<Grid
+					
+				>
+					<Grid.RowDefinitions>
+						<RowDefinition Height="Auto"/>
+						<RowDefinition/>
+					</Grid.RowDefinitions>
+					
+					<TextBlock
+						Margin="0,8,0,0"
+						Foreground="{StaticResource ThemeAccent1}"
+						FontFamily="{StaticResource FontSevenSegment}"
+						FontSize="14"
+						TextAlignment="Center"
+						Text="Port"
+					/>
+					
+					<TextBox
+						x:Name="PortTextBox"
+						Grid.Row="1"
+						Padding="10,0,10,5"
+						HorizontalContentAlignment="Center"
+						VerticalContentAlignment="Center"
+						Foreground="{StaticResource ThemeFg1}"
+						
+						CaretBrush="{StaticResource ThemeCaret}"
+						FontFamily="{StaticResource FontSevenSegment}"
+						FontSize="36"
+						Text="25569"
+						KeyUp="OnPortTextBoxKeyUp"
+						LostFocus="OnPortTextBoxLostFocus"
+					>
+						<TextBox.Style>
+							<Style TargetType="TextBox">
+								<Setter Property="Template">
+									<Setter.Value>
+										<ControlTemplate TargetType="TextBox">
+											<ScrollViewer
+												x:Name="PART_ContentHost"
+												Style="{StaticResource ScrollViewer}"
+												Padding="{TemplateBinding Padding}"
+			
+												SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"
+												HorizontalScrollBarVisibility="{TemplateBinding HorizontalScrollBarVisibility}"
+												VerticalScrollBarVisibility="{TemplateBinding VerticalScrollBarVisibility}"
+												HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+												VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+											>
+												<ScrollViewer.Effect>
+													<DropShadowEffect
+														BlurRadius="30"
+														Direction="270"
+														ShadowDepth="0"
+														Opacity="0.8"
+														Color="{StaticResource ThemeFgColor1}"	
+													/>
+												</ScrollViewer.Effect>
+											</ScrollViewer>
+										</ControlTemplate>
+									</Setter.Value>
+								</Setter>
+							</Style>
+
+						</TextBox.Style>
+					</TextBox>
+				</Grid>
+		
+			</Border>
+				
 			<StackPanel
 				Grid.Column="1"
-				Margin="15,0,15,0"
-			>
-			
-				<TextBlock
-					x:Name="PortTitle"
-					Style="{StaticResource TitleTextBlock}"
-					IsHitTestVisible="false"
-					Text="Port"
-				/>
-			
-				<TextBox
-					x:Name="PortTextBox"
-					Style="{StaticResource TextBox}"
-					Text="25569"
-					KeyUp="OnPortTextBoxKeyUp"
-					LostFocus="OnPortTextBoxLostFocus"
-				/>
-			</StackPanel>
-		
-			<StackPanel
-				Grid.Column="2"
 				Orientation="Horizontal"
 				VerticalAlignment="Center"
 			>

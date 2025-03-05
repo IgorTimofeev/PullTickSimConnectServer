@@ -6,6 +6,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 
 namespace PullTickSimConnectServer;
@@ -39,7 +41,6 @@ public partial class MainWindow : Window {
 		};
 
 		UpdateStatus();
-		CheckPortForRetardness();
 	}
 
 	public object PacketsSyncRoot { get; init; } = new object();
@@ -82,15 +83,21 @@ public partial class MainWindow : Window {
 	}
 
 	void UpdateStatus() {
-		MainEllipse.Fill = (SolidColorBrush) Application.Current.Resources[
-			Sim.IsConnected && Tcp.IsStarted
-			? "ThemeGood2"
-			: (
-				Sim.IsConnected || Tcp.IsStarted
-				? "ThemeNeutral2"
-				: "ThemeBad2"
-			)
+		var state = Tcp.IsStarted && Sim.IsConnected;
+
+		state = true;
+
+		StatusEllipse.Stroke = (SolidColorBrush) Application.Current.Resources[
+			state
+			? "ThemeAccent1"
+			: "ThemeAccent3"
 		];
+
+		StatusEffect.Opacity = state ? 0.5 : 0;
+
+		StatusImage.Source = new BitmapImage(new Uri($"Resources/Images/{(state ? "LogoOn" : "LogoOff")}.png", UriKind.Relative));
+
+		BackgroundRectangle.StrokeThickness = state ? 1 : 0;
 
 		SimStatusTextBlock.Text = Sim.IsConnected ? "Flight simulator: linked" : "Flight simulator: not detected";
 		TCPStatusTextBlock.Text = Tcp.IsStarted ? "Socket server: running" : "Socket server: stopped";
@@ -114,16 +121,7 @@ public partial class MainWindow : Window {
 		Keyboard.ClearFocus();
 	}
 
-	void CheckPortForRetardness() {
-		PortTitle.Text =
-			int.TryParse(PortTextBox.Text, out _)
-			? "Port"
-			: "Retarted port";
-	}
-
 	void OnPortTextBoxLostFocus(object sender, RoutedEventArgs e) {
-		CheckPortForRetardness();
-
 		PortTextBoxInputTimer.Start();
 	}
 }
