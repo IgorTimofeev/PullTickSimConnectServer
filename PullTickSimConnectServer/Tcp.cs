@@ -6,6 +6,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Threading;
 
 namespace PullTickSimConnectServer {
     public class TCP  {
@@ -22,7 +23,7 @@ namespace PullTickSimConnectServer {
 
 				_IsStarted = value;
 
-				IsStartedChanged?.Invoke();
+				MainWindow.Dispatcher.BeginInvoke(() => IsStartedChanged?.Invoke());
 			}
 		}
 

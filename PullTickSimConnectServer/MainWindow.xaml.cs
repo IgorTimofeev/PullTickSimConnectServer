@@ -16,31 +16,32 @@ public partial class MainWindow : Window {
 	public MainWindow() {
 		InitializeComponent();
 
+		// Sim
 		Sim = new(this);
 		Sim.IsConnectedChanged += UpdateStatus;
 
-		Tcp = new(this);
-		Tcp.IsStartedChanged += UpdateStatus;
+		// TCP
+		TCP = new(this);
+		TCP.IsStartedChanged += UpdateStatus;
 
-		PortTextBoxInputTimer = new(
+		// PortTextBox 
+		PortTextBox.Text = App.Settings.port.ToString();
+
+		PortTextBoxTimer = new(
 			TimeSpan.FromSeconds(1),
 			DispatcherPriority.ApplicationIdle,
-			(s, e) => {
-				PortTextBoxInputTimer!.Stop();
-
-				TCPReconnect();
-			},
+			OnPortTextBoxTimerTick,
 			Dispatcher
 		);
 
-		PortTextBoxInputTimer.Stop();
+		PortTextBoxTimer.Stop();
 
+		// Initialization
 		Loaded += (s, e) => {
-			//Sim.Start();
-			TCPReconnect();
+			Sim.Start();
+			TCP.Start(App.Settings.port);
+			UpdateStatus();
 		};
-
-		UpdateStatus();
 	}
 
 	public object PacketsSyncRoot { get; init; } = new object();
@@ -51,9 +52,9 @@ public partial class MainWindow : Window {
 	public static unsafe int RemotePacketSize => sizeof(RemotePacket);
 	public static unsafe int AircraftPacketSize => sizeof(AircraftPacket);
 
-	Sim Sim;
-	TCP Tcp;
-	DispatcherTimer PortTextBoxInputTimer;
+	readonly Sim Sim;
+	readonly TCP TCP;
+	readonly DispatcherTimer PortTextBoxTimer;
 
 	public void HandleRemotePacket() {
 		if (!Sim.IsConnected)
@@ -83,9 +84,7 @@ public partial class MainWindow : Window {
 	}
 
 	void UpdateStatus() {
-		var state = Tcp.IsStarted && Sim.IsConnected;
-
-		state = true;
+		var state = TCP.IsStarted && Sim.IsConnected;
 
 		StatusEllipse.Stroke = (SolidColorBrush) Application.Current.Resources[
 			state
@@ -99,18 +98,8 @@ public partial class MainWindow : Window {
 
 		BackgroundRectangle.StrokeThickness = state ? 1 : 0;
 
-		TCPStatusRun.Text = Tcp.IsStarted ? "running" : "stopped";
+		TCPStatusRun.Text = TCP.IsStarted ? "running" : "stopped";
 		SimStatusRun.Text = Sim.IsConnected ? "running" : "not found";
-	}
-
-	void TCPReconnect() {
-		if (!int.TryParse(PortTextBox.Text, out var port))
-			return;
-
-		if (Tcp.IsStarted)
-			Tcp.Stop();
-
-		Tcp.Start(port);
 	}
 
 	void OnPortTextBoxKeyUp(object sender, KeyEventArgs e) {
@@ -122,6 +111,20 @@ public partial class MainWindow : Window {
 	}
 
 	void OnPortTextBoxLostFocus(object sender, RoutedEventArgs e) {
-		PortTextBoxInputTimer.Start();
+		PortTextBoxTimer.Start();
+	}
+
+	void OnPortTextBoxTimerTick(object? s, EventArgs e) {
+		PortTextBoxTimer!.Stop();
+
+		if (!int.TryParse(PortTextBox.Text, out var port))
+			return;
+
+		App.Settings.port = port;
+
+		if (TCP.IsStarted)
+			TCP.Stop();
+
+		TCP.Start(App.Settings.port);
 	}
 }

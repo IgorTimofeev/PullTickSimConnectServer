@@ -7,7 +7,7 @@
     xmlns:local="clr-namespace:PullTickSimConnectServer"
     mc:Ignorable="d"
 	
-	Title="Charlotte SimConnecto(R)"
+	Title="Simlink"
 	
 	Width="367"
 	Height="120"
@@ -112,17 +112,6 @@
 							<TextBlock.Inlines>
 								<Run Foreground="{StaticResource ThemeAccent1}">Flight simulator: </Run>
 								<Run x:Name="SimStatusRun"/>
-							</TextBlock.Inlines>
-						</TextBlock>
-						
-						<TextBlock
-							Margin="0,8,0,0"
-							FontFamily="{StaticResource FontSevenSegment}"
-							FontSize="12"	
-						>
-							<TextBlock.Inlines>
-								<Run Foreground="{StaticResource ThemeAccent1}">Fedya: </Run>
-								<Run>smol</Run>
 							</TextBlock.Inlines>
 						</TextBlock>
 					</StackPanel>

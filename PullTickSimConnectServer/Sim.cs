@@ -63,7 +63,7 @@ public class Sim {
 
 		ReconnectTimer = new(
 			_ => {
-				Debug.WriteLine($"[SimConnect] Restarting by timer");
+				Debug.WriteLine($"[Sim] Restarting by timer");
 
 				if (!IsStarted)
 					Start();
@@ -85,7 +85,7 @@ public class Sim {
 
 			_IsStarted = value;
 
-			IsStartedChanged?.Invoke();
+			MainWindow.Dispatcher.BeginInvoke(() => IsStartedChanged?.Invoke());
 		}
 	}
 
@@ -98,7 +98,7 @@ public class Sim {
 
 			_IsConnected = value;
 
-			IsConnectedChanged?.Invoke();
+			MainWindow.Dispatcher.BeginInvoke(() => IsConnectedChanged?.Invoke());
 		}
 	}
 
@@ -118,7 +118,7 @@ public class Sim {
 			return;
 
 		try {
-			Debug.WriteLine("[SimConnect] Starting");
+			Debug.WriteLine("[Sim] Starting");
 
 			IsStarted = true;
 			ReconnectTimerStop();
@@ -157,7 +157,7 @@ public class Sim {
 
 			Thread = new(() => {
 				try {
-					Debug.WriteLine("[SimConnect] Receiving messages");
+					Debug.WriteLine("[Sim] Receiving messages");
 
 					while (true) {
 						lock (SyncRoot) {
@@ -178,7 +178,7 @@ public class Sim {
 
 				}
 				catch (Exception ex) {
-					Debug.WriteLine($"[SimConnect] Exception during receiving messages: {ex.Message}");
+					Debug.WriteLine($"[Sim] Exception during receiving messages: {ex.Message}");
 
 					ScheduleRestart();
 				}
@@ -189,7 +189,7 @@ public class Sim {
 			Thread.Start();
 		}
 		catch (Exception ex) {
-			Debug.WriteLine($"[SimConnect] Exception during starting: {ex.Message}");
+			Debug.WriteLine($"[Sim] Exception during starting: {ex.Message}");
 
 			ScheduleRestart();
 		}
@@ -210,14 +210,14 @@ public class Sim {
 		if (!IsStarted)
 			return;
 
-		Debug.WriteLine("[SimConnect] Stopping");
+		Debug.WriteLine("[Sim] Stopping");
 
 		PrepareForStop();
 		ReconnectTimerStop();
 	}
 
 	void ScheduleRestart() {
-		Debug.WriteLine($"[SimConnect] Scheduling restart in {ReconnectTimerPerdiod}");
+		Debug.WriteLine($"[Sim] Scheduling restart in {ReconnectTimerPerdiod}");
 
 		PrepareForStop();
 		ReconnectTimerStart();

@@ -10,6 +10,7 @@
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
     <PackageIcon></PackageIcon>
     <ApplicationIcon>Resources\Images\Icon.ico</ApplicationIcon>
+    <NoWin32Manifest>true</NoWin32Manifest>
   </PropertyGroup>
 
   <ItemGroup>
@@ -20,6 +21,10 @@
 
   <ItemGroup>
     <Content Include="Resources\Images\Icon.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 
   <ItemGroup>
