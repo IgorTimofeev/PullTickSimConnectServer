@@ -8,12 +8,18 @@
     <UseWPF>true</UseWPF>
     <Platforms>AnyCPU;x64</Platforms>
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+    <PackageIcon></PackageIcon>
+    <ApplicationIcon>Resources\Images\Icon.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
     <None Remove="LogoOff.png" />
     <None Remove="LogoOn.png" />
     <None Remove="Resources\Fonts\Seven Segment.ttf" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Resources\Images\Icon.ico" />
   </ItemGroup>
 
   <ItemGroup>
@@ -32,6 +38,13 @@
     <Reference Include="Microsoft.FlightSimulator.SimConnect">
       <HintPath>..\..\..\..\..\..\..\..\MSFS 2024 SDK\SimConnect SDK\lib\managed\Microsoft.FlightSimulator.SimConnect.dll</HintPath>
     </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Resources\Images\Icon.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
   </ItemGroup>
 
 </Project>

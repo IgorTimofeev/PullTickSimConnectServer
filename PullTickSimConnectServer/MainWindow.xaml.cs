@@ -99,8 +99,8 @@ public partial class MainWindow : Window {
 
 		BackgroundRectangle.StrokeThickness = state ? 1 : 0;
 
-		SimStatusTextBlock.Text = Sim.IsConnected ? "Flight simulator: linked" : "Flight simulator: not detected";
-		TCPStatusTextBlock.Text = Tcp.IsStarted ? "Socket server: running" : "Socket server: stopped";
+		TCPStatusRun.Text = Tcp.IsStarted ? "running" : "stopped";
+		SimStatusRun.Text = Sim.IsConnected ? "linked" : "not detected";
 	}
 
 	void TCPReconnect() {
