@@ -9,7 +9,7 @@
 	
 	Title="PullTick SimConnecto(R)"
 	
-	Width="221"
+	Width="233"
 	Height="124"
 	
 	WindowStyle="None"
@@ -39,11 +39,11 @@
 		>
 			<TextBlock
 				Foreground="{StaticResource ThemeFg4}"
-				Margin="10,0,0,0"
+				Margin="8,0,0,0"
 				HorizontalAlignment="Left"
 				VerticalAlignment="Center"
 				FontSize="11"
-				Text="PullTick SimConnecto(R)"
+				Text="Charlotte SimConnector"
 			/>
 			
 			<StackPanel
@@ -60,7 +60,6 @@
 				<Button
 					x:Name="WindowCloseButton"
 					Style="{StaticResource WindowCloseButton}"
-					Margin="5,0,0,0"
 					Content="X"
 					Click="OnWindowCloseButtonClick"
 				/>
@@ -72,69 +71,100 @@
 			Margin="15,0,15,0"
 		>
 			<Grid.ColumnDefinitions>
-				<ColumnDefinition Width="Auto"/>
 				<ColumnDefinition/>
+				<ColumnDefinition Width="Auto"/>
+				<ColumnDefinition Width="Auto"/>
 			</Grid.ColumnDefinitions>
 			
-			<Grid
-				Width="10"
-				Height="10"
-				Margin="0,12,0,0"
-			>
-				<Ellipse
-					x:Name="SyncEllipseMain"
-					Fill="#00FF00"
-				/>
-					
-				<Ellipse
-					Fill="{Binding Fill, ElementName=SyncEllipseMain}"
-					Opacity="1"
-					RenderTransformOrigin="0.5,0.5"
-				>
-					<Ellipse.RenderTransform>
-						<ScaleTransform ScaleX="1" ScaleY="{Binding ScaleX, RelativeSource={RelativeSource Mode=Self}}"/>
-					</Ellipse.RenderTransform>
-						
-					<Ellipse.Triggers>
-						<EventTrigger RoutedEvent="Loaded">
-							<BeginStoryboard>
-								<Storyboard>
-									<DoubleAnimation
-										Storyboard.TargetProperty="(Ellipse.RenderTransform).(ScaleTransform.ScaleX)"
-										To="2"
-										Duration="0:0:2"
-										RepeatBehavior="Forever"
-									/>
-										
-									<DoubleAnimation
-										Storyboard.TargetProperty="Opacity"
-										To="0"
-										Duration="0:0:2"
-										RepeatBehavior="Forever"
-									/>
-								</Storyboard>
-							</BeginStoryboard>
-						</EventTrigger>
-					</Ellipse.Triggers>
-				</Ellipse>
-			</Grid>
-				
 			<StackPanel
-				Grid.Column="1"
-				Margin="15,2,0,0"
+				Margin="0,2,0,0"
 			>
 				
 				<TextBlock
+					x:Name="PortTitle"
 					Style="{StaticResource TitleTextBlock}"
-					Text="Port"
+					Text="Server port"
 				/>
 				
 				<TextBox
 					x:Name="PortTextBox"
 					Style="{StaticResource TextBox}"
 					Text="25569"
-					TextChanged="OnPortTextBoxTextChanged"
+					KeyUp="OnPortTextBoxKeyUp"
+					LostFocus="OnPortTextBoxLostFocus"
 				/>
+			</StackPanel>
+			
+			<StackPanel
+				Grid.Column="1"
+				Margin="10,0,0,0"
+			>
+				<TextBlock
+					Style="{StaticResource TitleTextBlock}"
+					Text="Status"
+				/>
+	
+				<Grid
+					Width="12"
+					Height="12"
+					Margin="0,15,0,0"
+				>
+					<Ellipse
+						x:Name="MainEllipse"
+						Fill="#00FF00"
+					/>
+	
+					<Ellipse
+						Fill="{Binding Fill, ElementName=MainEllipse}"
+						Opacity="1"
+						RenderTransformOrigin="0.5,0.5"
+					>
+						<Ellipse.RenderTransform>
+							<ScaleTransform ScaleX="1" ScaleY="{Binding ScaleX, RelativeSource={RelativeSource Mode=Self}}"/>
+						</Ellipse.RenderTransform>
+		
+						<Ellipse.Triggers>
+							<EventTrigger RoutedEvent="Loaded">
+								<BeginStoryboard>
+									<Storyboard>
+										<DoubleAnimation
+											Storyboard.TargetProperty="(Ellipse.RenderTransform).(ScaleTransform.ScaleX)"
+											To="2"
+											Duration="0:0:2"
+											RepeatBehavior="Forever"
+										/>
+						
+										<DoubleAnimation
+											Storyboard.TargetProperty="Opacity"
+											To="0"
+											Duration="0:0:2"
+											RepeatBehavior="Forever"
+										/>
+									</Storyboard>
+								</BeginStoryboard>
+							</EventTrigger>
+						</Ellipse.Triggers>
+					</Ellipse>
+					
+					<Grid.ToolTip>
+						<ToolTip
+							Style="{StaticResource ToolTip}"	
+						>
+							<StackPanel>
+								<TextBlock
+									x:Name="SimStatusTextBlock"
+									Text="SimConnect is running"
+								/>
+						
+								<TextBlock
+									x:Name="TCPStatusTextBlock"
+									Margin="0,5,0,0"
+									Text="TCP server is running"
+								/>
+							</StackPanel>
+						</ToolTip>
+					</Grid.ToolTip>
+				</Grid>
 			</StackPanel>
 		</Grid>
 	</Grid>

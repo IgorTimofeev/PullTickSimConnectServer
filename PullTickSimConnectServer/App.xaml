@@ -475,7 +475,7 @@
 		<Style x:Key="WindowActionButton" TargetType="Button" BasedOn="{StaticResource Button}">
 			<Setter Property="Height" Value="Auto"/>
 			<Setter Property="Padding" Value="10,0,10,0"/>
-			<Setter Property="Background" Value="{StaticResource ThemeBg3}"/>
+			<Setter Property="Background" Value="Transparent"/>
 			<Setter Property="Foreground" Value="{StaticResource ThemeFg4}"/>
 			<Setter Property="FontSize" Value="11"/>
 
@@ -548,6 +548,33 @@
 					</Trigger.Setters>
 				</Trigger>
 			</Style.Triggers>
+		</Style>
+		
+		<Style x:Key="ToolTip" TargetType="ToolTip">
+			<Setter Property="Padding" Value="10"/>
+
+			<Setter Property="Background" Value="{StaticResource ThemeBg3}"/>
+			<Setter Property="Foreground" Value="{StaticResource ThemeFg1}"/>
+
+			<Setter Property="ToolTipService.InitialShowDelay" Value="50"/>
+			<Setter Property="ToolTipService.BetweenShowDelay" Value="50"/>
+			
+			<Setter Property="Template">
+				<Setter.Value>
+					<ControlTemplate TargetType="ToolTip">
+						<Border
+							Background="{TemplateBinding Background}"
+							Padding="{TemplateBinding Padding}"
+							CornerRadius="5"
+						>
+							<ContentPresenter
+								HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"	
+								VerticalAlignment="{TemplateBinding VerticalContentAlignment}"	
+							/>
+						</Border>
+					</ControlTemplate>
+				</Setter.Value>
+			</Setter>
 		</Style>
     </Application.Resources>
 </Application>

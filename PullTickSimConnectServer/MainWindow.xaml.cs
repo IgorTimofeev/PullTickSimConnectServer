@@ -3,11 +3,12 @@ using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 
 namespace PullTickSimConnectServer;
-
 
 public partial class MainWindow : Window {
 	public MainWindow() {
@@ -30,7 +31,7 @@ public partial class MainWindow : Window {
 		PortTextBoxInputTimer.Stop();
 
 		Loaded += (s, e) => {
-			Sim.Start();
+			//Sim.Start();
 			TCPReconnect();
 		};
 	}
@@ -70,12 +71,12 @@ public partial class MainWindow : Window {
 		WindowState = WindowState.Minimized;
 	}
 
-	void OnTopPanelMouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) {
+	void OnTopPanelMouseDown(object sender, MouseButtonEventArgs e) {
 		DragMove();
 	}
 
 	void UpdateSyncEllipseColor() {
-		SyncEllipseMain.Fill = (SolidColorBrush) App.Current.Resources["ThemeGood2"];
+		//StatusIndicator.Fill = (SolidColorBrush) App.Current.Resources["ThemeGood2"];
 	}
 
 	void TCPReconnect() {
@@ -88,9 +89,23 @@ public partial class MainWindow : Window {
 		Tcp.Start(port);
 	}
 
-	void OnPortTextBoxTextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e) {
-		if (!PortTextBox.IsFocused)
+	void OnPortTextBoxKeyUp(object sender, KeyEventArgs e) {
+		if (e.Key is not Key.Enter)
 			return;
+
+		FocusManager.SetFocusedElement(FocusManager.GetFocusScope(PortTextBox), null);
+		Keyboard.ClearFocus();
+	}
+
+	void CheckPortForRetardness() {
+		PortTitle.Text =
+			int.TryParse(PortTextBox.Text, out _)
+			? "Server port"
+			: "Retarted port";
+	}
+
+	void OnPortTextBoxLostFocus(object sender, RoutedEventArgs e) {
+		CheckPortForRetardness();
 
 		PortTextBoxInputTimer.Start();
 	}

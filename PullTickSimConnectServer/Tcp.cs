@@ -13,30 +13,37 @@ namespace PullTickSimConnectServer {
 			MainWindow = mainWindow;
 		}
 
-		public bool IsStarted => AcceptTcpClientAsyncCTS is not null;
+		public bool IsStarted { get; private set; }
 
 		MainWindow MainWindow { get; init; }
 		TcpListener? TcpListener = null;
-		CancellationTokenSource? AcceptTcpClientAsyncCTS = null;
+		CancellationTokenSource? StopCTS = null;
 
 		public async void Start(int port) {
 			if (IsStarted)
 				return;
 
-			Debug.WriteLine("[TCP] Starting TCP server");
+			try {
+				Debug.WriteLine($"[TCP] Starting on port {port}");
 
-			TcpListener = new(IPAddress.Any, port);
-			AcceptTcpClientAsyncCTS = new();
+				IsStarted = true;
 
-			TcpListener.Start();
+				TcpListener = new(IPAddress.Any, port);
+				StopCTS = new();
 
-			while (true) {
-				try {
-					HandleClient(await TcpListener.AcceptTcpClientAsync(AcceptTcpClientAsyncCTS.Token));
+				TcpListener.Start();
+
+				while (true) {
+					HandleClient(await TcpListener.AcceptTcpClientAsync(StopCTS.Token));
 				}
-				catch (Exception ex) {
-					Stop();
-				}
+			}
+			catch (OperationCanceledException) {
+				
+			}
+			catch (Exception ex) {
+				Debug.WriteLine($"[TCP] Exception during accept client: {ex.Message}");
+
+				Stop();
 			}
 		}
 
@@ -44,11 +51,15 @@ namespace PullTickSimConnectServer {
 			if (!IsStarted)
 				return;
 
+			Debug.WriteLine("[TCP] Stopping");
+
+			IsStarted = false;
+
 			TcpListener?.Stop();
 			TcpListener?.Dispose();
 
-			AcceptTcpClientAsyncCTS?.Cancel();
-			AcceptTcpClientAsyncCTS = null;
+			StopCTS?.Cancel();
+			StopCTS = null;
 		}
 
 		async void HandleClient(TcpClient client) {
@@ -61,7 +72,7 @@ namespace PullTickSimConnectServer {
 				while (true) {
 					// Reading
 					do {
-						await stream.ReadExactlyAsync(buffer, 0, MainWindow.RemotePacketSize);
+						await stream.ReadExactlyAsync(buffer, 0, MainWindow.RemotePacketSize, StopCTS!.Token);
 
 						lock (MainWindow.PacketsSyncRoot) {
 							MainWindow.RemotePacket = BytesToStruct<RemotePacket>(buffer);
@@ -83,7 +94,7 @@ namespace PullTickSimConnectServer {
 
 			}
 			catch (Exception ex) {
-					
+				Debug.WriteLine($"[TCP] Exception during client handling: {ex.Message}");
 			}
 
 			Debug.WriteLine("[TCP] Client disconnected");
