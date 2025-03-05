@@ -7,16 +7,17 @@
     xmlns:local="clr-namespace:PullTickSimConnectServer"
     mc:Ignorable="d"
 	
-	Title="PullTick SimConnecto(R)"
+	Title="Charlotte SimConnecto(R)"
 	
-	Width="233"
-	Height="124"
+	Width="327"
+	Height="133"
 	
 	WindowStyle="None"
 	WindowStartupLocation="CenterScreen"
 	ResizeMode="NoResize"
 	
-	Background="{StaticResource ThemeBg1}"
+	AllowsTransparency="True"
+	Background="Transparent"
 >
 	<WindowChrome.WindowChrome>
 		<WindowChrome
@@ -27,83 +28,43 @@
 		/>
 	</WindowChrome.WindowChrome>
 
-	<Grid>
-		<Grid.RowDefinitions>
-			<RowDefinition Height="30"/>
-			<RowDefinition/>
-		</Grid.RowDefinitions>
-		
-		<Grid
-			Background="{StaticResource ThemeBg2}"
+	<Grid
+		Margin="20"
+	>
+		<Rectangle
+			RadiusX="10"
+			RadiusY="10"
+			Fill="{StaticResource ThemeBg1}"
 			MouseDown="OnTopPanelMouseDown"
 		>
-			<TextBlock
-				Foreground="{StaticResource ThemeFg4}"
-				Margin="8,0,0,0"
-				HorizontalAlignment="Left"
-				VerticalAlignment="Center"
-				FontSize="11"
-				Text="Charlotte SimConnector"
-			/>
-			
-			<StackPanel
-				Orientation="Horizontal"
-				HorizontalAlignment="Right"
-			>
-				<Button
-					x:Name="WindowMinimizeButton"
-					Style="{StaticResource WindowActionButton}"
-					Content="_"
-					Click="OnWindowMinimizeButtonClick"
+			<Rectangle.Effect>
+				<DropShadowEffect
+					BlurRadius="20"
+					Opacity="0.3"
+					Color="#000"	
 				/>
-				
-				<Button
-					x:Name="WindowCloseButton"
-					Style="{StaticResource WindowCloseButton}"
-					Content="X"
-					Click="OnWindowCloseButtonClick"
-				/>
-			</StackPanel>
-		</Grid>
-		
+			</Rectangle.Effect>
+		</Rectangle>
+
 		<Grid
 			Grid.Row="1"
-			Margin="15,0,15,0"
+			Margin="15,3,12,0"
 		>
 			<Grid.ColumnDefinitions>
+				<ColumnDefinition Width="Auto"/>
 				<ColumnDefinition/>
 				<ColumnDefinition Width="Auto"/>
-				<ColumnDefinition Width="Auto"/>
 			</Grid.ColumnDefinitions>
-			
+		
 			<StackPanel
-				Margin="0,2,0,0"
-			>
 				
-				<TextBlock
-					x:Name="PortTitle"
-					Style="{StaticResource TitleTextBlock}"
-					Text="Server port"
-				/>
-				
-				<TextBox
-					x:Name="PortTextBox"
-					Style="{StaticResource TextBox}"
-					Text="25569"
-					KeyUp="OnPortTextBoxKeyUp"
-					LostFocus="OnPortTextBoxLostFocus"
-				/>
-			</StackPanel>
-			
-			<StackPanel
-				Grid.Column="1"
-				Margin="10,0,0,0"
 			>
 				<TextBlock
 					Style="{StaticResource TitleTextBlock}"
+					IsHitTestVisible="false"
 					Text="Status"
 				/>
-	
+
 				<Grid
 					Width="12"
 					Height="12"
@@ -113,7 +74,7 @@
 						x:Name="MainEllipse"
 						Fill="#00FF00"
 					/>
-	
+
 					<Ellipse
 						Fill="{Binding Fill, ElementName=MainEllipse}"
 						Opacity="1"
@@ -122,22 +83,22 @@
 						<Ellipse.RenderTransform>
 							<ScaleTransform ScaleX="1" ScaleY="{Binding ScaleX, RelativeSource={RelativeSource Mode=Self}}"/>
 						</Ellipse.RenderTransform>
-		
+	
 						<Ellipse.Triggers>
 							<EventTrigger RoutedEvent="Loaded">
 								<BeginStoryboard>
 									<Storyboard>
 										<DoubleAnimation
 											Storyboard.TargetProperty="(Ellipse.RenderTransform).(ScaleTransform.ScaleX)"
-											To="2"
-											Duration="0:0:2"
+											To="10"
+											Duration="0:0:1"
 											RepeatBehavior="Forever"
 										/>
-						
+					
 										<DoubleAnimation
 											Storyboard.TargetProperty="Opacity"
 											To="0"
-											Duration="0:0:2"
+											Duration="0:0:1"
 											RepeatBehavior="Forever"
 										/>
 									</Storyboard>
@@ -145,7 +106,7 @@
 							</EventTrigger>
 						</Ellipse.Triggers>
 					</Ellipse>
-					
+				
 					<Grid.ToolTip>
 						<ToolTip
 							Style="{StaticResource ToolTip}"	
@@ -155,7 +116,7 @@
 									x:Name="SimStatusTextBlock"
 									Text="SimConnect is running"
 								/>
-						
+					
 								<TextBlock
 									x:Name="TCPStatusTextBlock"
 									Margin="0,5,0,0"
@@ -165,6 +126,48 @@
 						</ToolTip>
 					</Grid.ToolTip>
 				</Grid>
+			</StackPanel>
+			
+			<StackPanel
+				Grid.Column="1"
+				Margin="15,0,15,0"
+			>
+			
+				<TextBlock
+					x:Name="PortTitle"
+					Style="{StaticResource TitleTextBlock}"
+					IsHitTestVisible="false"
+					Text="Server port"
+				/>
+			
+				<TextBox
+					x:Name="PortTextBox"
+					Style="{StaticResource TextBox}"
+					Text="25569"
+					KeyUp="OnPortTextBoxKeyUp"
+					LostFocus="OnPortTextBoxLostFocus"
+				/>
+			</StackPanel>
+		
+			<StackPanel
+				Grid.Column="2"
+				Orientation="Horizontal"
+				VerticalAlignment="Center"
+			>
+				<Button
+					x:Name="WindowMinimizeButton"
+					Style="{StaticResource WindowActionButton}"
+					Content="-"
+					Click="OnWindowMinimizeButtonClick"
+				/>
+			
+				<Button
+					x:Name="WindowCloseButton"
+					Style="{StaticResource WindowCloseButton}"
+					Margin="10,0,0,0"
+					Content="X"
+					Click="OnWindowCloseButtonClick"
+				/>
 			</StackPanel>
 		</Grid>
 	</Grid>
