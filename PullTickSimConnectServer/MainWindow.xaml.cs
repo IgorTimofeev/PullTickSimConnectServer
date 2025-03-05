@@ -15,7 +15,10 @@ public partial class MainWindow : Window {
 		InitializeComponent();
 
 		Sim = new(this);
+		Sim.IsConnectedChanged += UpdateStatus;
+
 		Tcp = new(this);
+		Tcp.IsStartedChanged += UpdateStatus;
 
 		PortTextBoxInputTimer = new(
 			TimeSpan.FromSeconds(1),
@@ -34,6 +37,9 @@ public partial class MainWindow : Window {
 			//Sim.Start();
 			TCPReconnect();
 		};
+
+		UpdateStatus();
+		CheckPortForRetardness();
 	}
 
 	public object PacketsSyncRoot { get; init; } = new object();
@@ -75,8 +81,19 @@ public partial class MainWindow : Window {
 		DragMove();
 	}
 
-	void UpdateSyncEllipseColor() {
-		//StatusIndicator.Fill = (SolidColorBrush) App.Current.Resources["ThemeGood2"];
+	void UpdateStatus() {
+		MainEllipse.Fill = (SolidColorBrush) Application.Current.Resources[
+			Sim.IsConnected && Tcp.IsStarted
+			? "ThemeGood2"
+			: (
+				Sim.IsConnected || Tcp.IsStarted
+				? "ThemeNeutral2"
+				: "ThemeBad2"
+			)
+		];
+
+		SimStatusTextBlock.Text = Sim.IsConnected ? "Flight simulator: linked" : "Flight simulator: not detected";
+		TCPStatusTextBlock.Text = Tcp.IsStarted ? "Socket server: running" : "Socket server: stopped";
 	}
 
 	void TCPReconnect() {
@@ -100,7 +117,7 @@ public partial class MainWindow : Window {
 	void CheckPortForRetardness() {
 		PortTitle.Text =
 			int.TryParse(PortTextBox.Text, out _)
-			? "Server port"
+			? "Port"
 			: "Retarted port";
 	}
 

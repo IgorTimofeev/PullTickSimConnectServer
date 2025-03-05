@@ -76,8 +76,33 @@ public class Sim {
 		ReconnectTimerStop();
 	}
 
-	public bool IsStarted { get; private set; } = false;
-	public bool IsConnected { get; private set; } = false;
+	bool _IsStarted = false;
+	public bool IsStarted {
+		get => _IsStarted;
+		private set {
+			if (value == _IsStarted)
+				return;
+
+			_IsStarted = value;
+
+			IsStartedChanged?.Invoke();
+		}
+	}
+
+	bool _IsConnected = false;
+	public bool IsConnected {
+		get => _IsConnected;
+		private set {
+			if (value == _IsConnected)
+				return;
+
+			_IsConnected = value;
+
+			IsConnectedChanged?.Invoke();
+		}
+	}
+
+	public event Action IsStartedChanged, IsConnectedChanged;
 
 	readonly MainWindow MainWindow;
 	SimConnect? SimConnect = null;

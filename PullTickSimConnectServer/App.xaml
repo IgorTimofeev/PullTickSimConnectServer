@@ -25,6 +25,10 @@
 		<SolidColorBrush x:Key="ThemeGood2" Color="#23c95f"/>
 		<SolidColorBrush x:Key="ThemeGood3" Color="#28DA69"/>
 		
+		<SolidColorBrush x:Key="ThemeNeutral1" Color="#cb8e18"/>
+		<SolidColorBrush x:Key="ThemeNeutral2" Color="#f8b738"/>
+		<SolidColorBrush x:Key="ThemeNeutral3" Color="#fdca67"/>
+		
 		<SolidColorBrush x:Key="ThemeBad1" Color="#FFDE464D"/>
 		<SolidColorBrush x:Key="ThemeBad2" Color="#FFB12B31"/>
 		<SolidColorBrush x:Key="ThemeBad3" Color="#FF630F13"/>
@@ -184,7 +188,7 @@
 		</Style>
 
 		<Style x:Key="TitleTextBlock" TargetType="TextBlock">
-			<Setter Property="Margin" Value="0,10,0,5"/>
+			<Setter Property="Margin" Value="0,0,0,5"/>
 			<Setter Property="FontSize" Value="12"/>
 			<Setter Property="Foreground" Value="{StaticResource ThemeFg4}"/>
 			<Setter Property="TextWrapping" Value="Wrap"/>

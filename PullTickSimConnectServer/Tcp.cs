@@ -13,7 +13,20 @@ namespace PullTickSimConnectServer {
 			MainWindow = mainWindow;
 		}
 
-		public bool IsStarted { get; private set; }
+		bool _IsStarted = false;
+		public bool IsStarted {
+			get => _IsStarted;
+			private set {
+				if (value == _IsStarted)
+					return;
+
+				_IsStarted = value;
+
+				IsStartedChanged?.Invoke();
+			}
+		}
+
+		public event Action IsStartedChanged;
 
 		MainWindow MainWindow { get; init; }
 		TcpListener? TcpListener = null;

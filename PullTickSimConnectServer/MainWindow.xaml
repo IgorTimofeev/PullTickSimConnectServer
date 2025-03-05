@@ -9,8 +9,8 @@
 	
 	Title="Charlotte SimConnecto(R)"
 	
-	Width="327"
-	Height="133"
+	Width="282"
+	Height="117"
 	
 	WindowStyle="None"
 	WindowStartupLocation="CenterScreen"
@@ -48,7 +48,7 @@
 
 		<Grid
 			Grid.Row="1"
-			Margin="15,3,12,0"
+			Margin="12,5,12,0"
 		>
 			<Grid.ColumnDefinitions>
 				<ColumnDefinition Width="Auto"/>
@@ -90,15 +90,15 @@
 									<Storyboard>
 										<DoubleAnimation
 											Storyboard.TargetProperty="(Ellipse.RenderTransform).(ScaleTransform.ScaleX)"
-											To="10"
-											Duration="0:0:1"
+											To="2.5"
+											Duration="0:0:2"
 											RepeatBehavior="Forever"
 										/>
 					
 										<DoubleAnimation
 											Storyboard.TargetProperty="Opacity"
 											To="0"
-											Duration="0:0:1"
+											Duration="0:0:2"
 											RepeatBehavior="Forever"
 										/>
 									</Storyboard>
@@ -113,14 +113,14 @@
 						>
 							<StackPanel>
 								<TextBlock
-									x:Name="SimStatusTextBlock"
-									Text="SimConnect is running"
-								/>
-					
-								<TextBlock
 									x:Name="TCPStatusTextBlock"
-									Margin="0,5,0,0"
 									Text="TCP server is running"
+								/>
+								
+								<TextBlock
+									x:Name="SimStatusTextBlock"
+									Margin="0,5,0,0"
+									Text="SimConnect is running"
 								/>
 							</StackPanel>
 						</ToolTip>
@@ -137,7 +137,7 @@
 					x:Name="PortTitle"
 					Style="{StaticResource TitleTextBlock}"
 					IsHitTestVisible="false"
-					Text="Server port"
+					Text="Port"
 				/>
 			
 				<TextBox
