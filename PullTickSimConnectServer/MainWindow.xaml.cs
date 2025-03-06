@@ -69,6 +69,8 @@ public partial class MainWindow : Window {
 
 		Sim.SendFlapsEvent(RemotePacket.flaps);
 		Sim.SendSpoilersEvent(RemotePacket.spoilers);
+
+		Sim.SendGearSetEvent(RemotePacket.landingGear);
 	}
 
 	void OnWindowCloseButtonClick(object sender, RoutedEventArgs e) {

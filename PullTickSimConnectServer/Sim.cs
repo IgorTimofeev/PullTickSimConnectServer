@@ -42,6 +42,8 @@ public enum SimEvent {
 	FLAPS_SET,
 	SPOILERS_SET,
 
+	GEAR_SET,
+
 	AP_SPD_VAR_SET,
 	HEADING_BUG_SET,
 	AP_ALT_VAR_SET_ENGLISH,
@@ -311,10 +313,18 @@ public class Sim {
 		TransmitEvent(eventID, (uint) Math.Round(value / 65535f * 16384f));
 	}
 
+	public void SendEvent(Enum eventID, bool value) {
+		TransmitEvent(eventID, (uint) (value ? 1 : 0));
+	}
+
 	// ----------------------------------------- Exact events -----------------------------------------
 
 	public void SendAileronsEvent(ushort value) {
 		SendMinMax16383Event(SimEvent.AILERON_SET, value);
+	}
+
+	public void SendGearSetEvent(bool value) {
+		SendEvent(SimEvent.GEAR_SET, value);
 	}
 
 	public void SendElevatorEvent(ushort value) {
