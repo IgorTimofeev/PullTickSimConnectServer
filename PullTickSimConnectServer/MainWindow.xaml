@@ -149,7 +149,7 @@
 					/>
 					
 					<TextBox
-						x:Name="PortTextBox"
+						x:Name="TCPPortTextBox"
 						Grid.Row="1"
 						Padding="10,0,10,5"
 						HorizontalContentAlignment="Center"

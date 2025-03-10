@@ -15,6 +15,7 @@ public struct SimData {
 	public double Pitch;
 	public double Yaw;
 	public double Roll;
+	public double SlipAndSkid;
 
 	public double Altitude;
 	public double Speed;
@@ -104,7 +105,7 @@ public class Sim {
 		}
 	}
 
-	public event Action IsStartedChanged, IsConnectedChanged;
+	public event Action? IsStartedChanged, IsConnectedChanged;
 
 	readonly MainWindow MainWindow;
 	SimConnect? SimConnect = null;
@@ -148,6 +149,7 @@ public class Sim {
 			SimConnect.AddToDataDefinition(SimDefinition.SimData, "PLANE PITCH DEGREES", "radians", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
 			SimConnect.AddToDataDefinition(SimDefinition.SimData, "PLANE HEADING DEGREES MAGNETIC", "radians", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
 			SimConnect.AddToDataDefinition(SimDefinition.SimData, "PLANE BANK DEGREES", "radians", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+			SimConnect.AddToDataDefinition(SimDefinition.SimData, "TURN COORDINATOR BALL", "Position 128", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
 
 			SimConnect.AddToDataDefinition(SimDefinition.SimData, "PLANE ALTITUDE", "feet", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
 			SimConnect.AddToDataDefinition(SimDefinition.SimData, "AIRSPEED INDICATED", "knots", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
@@ -258,6 +260,7 @@ public class Sim {
 				MainWindow.AircraftPacket.pitch = (float) simData.Pitch;
 				MainWindow.AircraftPacket.yaw = (float) simData.Yaw;
 				MainWindow.AircraftPacket.roll = (float) (2 * Math.PI - simData.Roll);
+				MainWindow.AircraftPacket.slipAndSkid = (float) simData.SlipAndSkid / 127f;
 
 				MainWindow.AircraftPacket.altitude = (float) simData.Altitude;
 				MainWindow.AircraftPacket.speed = (float) simData.Speed;

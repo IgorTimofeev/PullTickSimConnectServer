@@ -26,6 +26,7 @@ namespace PullTickSimConnectServer
 		public float pitch;
 		public float yaw;
 		public float roll;
+		public float slipAndSkid;
 
 		public float altitude;
 		public float speed;

@@ -69,11 +69,11 @@ namespace PullTickSimConnectServer {
 
 			IsStarted = false;
 
-			TcpListener?.Stop();
-			TcpListener?.Dispose();
-
 			StopCTS?.Cancel();
 			StopCTS = null;
+
+			TcpListener?.Stop();
+			TcpListener?.Dispose();
 		}
 
 		async void HandleClient(TcpClient client) {

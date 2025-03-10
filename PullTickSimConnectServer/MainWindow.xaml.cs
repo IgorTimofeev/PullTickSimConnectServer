@@ -24,17 +24,7 @@ public partial class MainWindow : Window {
 		TCP = new(this);
 		TCP.IsStartedChanged += UpdateStatus;
 
-		// PortTextBox 
-		PortTextBox.Text = App.Settings.port.ToString();
-
-		PortTextBoxTimer = new(
-			TimeSpan.FromSeconds(1),
-			DispatcherPriority.ApplicationIdle,
-			OnPortTextBoxTimerTick,
-			Dispatcher
-		);
-
-		PortTextBoxTimer.Stop();
+		TCPPortTextBox.Text = App.Settings.port.ToString();
 
 		// Initialization
 		Loaded += (s, e) => {
@@ -54,7 +44,6 @@ public partial class MainWindow : Window {
 
 	readonly Sim Sim;
 	readonly TCP TCP;
-	readonly DispatcherTimer PortTextBoxTimer;
 
 	public void HandleRemotePacket() {
 		if (!Sim.IsConnected)
@@ -108,24 +97,24 @@ public partial class MainWindow : Window {
 		if (e.Key is not Key.Enter)
 			return;
 
-		FocusManager.SetFocusedElement(FocusManager.GetFocusScope(PortTextBox), null);
+		FocusManager.SetFocusedElement(FocusManager.GetFocusScope(TCPPortTextBox), null);
 		Keyboard.ClearFocus();
 	}
 
 	void OnPortTextBoxLostFocus(object sender, RoutedEventArgs e) {
-		PortTextBoxTimer.Start();
-	}
-
-	void OnPortTextBoxTimerTick(object? s, EventArgs e) {
-		PortTextBoxTimer!.Stop();
-
-		if (!int.TryParse(PortTextBox.Text, out var port))
+		if (!int.TryParse(TCPPortTextBox.Text, out var port))
 			return;
 
-		App.Settings.port = port;
+		if (TCP.IsStarted) {
+			if (port == App.Settings.port) {
+				return;
+			}
+			else {
+				TCP.Stop();
+			}
+		}
 
-		if (TCP.IsStarted)
-			TCP.Stop();
+		App.Settings.port = port;
 
 		TCP.Start(App.Settings.port);
 	}
