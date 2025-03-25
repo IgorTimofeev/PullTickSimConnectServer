@@ -22,14 +22,22 @@ namespace PullTickSimConnectServer
 	public struct AircraftPacket {
 		public float latitude;
 		public float longitude;
-		
+		public float altitude;
+
+		public float x;
+		public float y;
+		public float z;
+
 		public float pitch;
 		public float yaw;
 		public float roll;
-		public float slipAndSkid;
 
-		public float altitude;
 		public float speed;
+
+		public float flightPathPitch;
+		public float flightPathYaw;
+
+		public float slipAndSkid;
 
 		public float pressure;
 		public float temperature;

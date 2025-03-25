@@ -251,25 +251,7 @@ public class Sim {
 
 	void OnRecvSimobjectDataBytype(SimConnect sender, SIMCONNECT_RECV_SIMOBJECT_DATA_BYTYPE data) {
 		if (data.dwRequestID == 0) {
-			var simData = (SimData) data.dwData[0];
-
-			lock (MainWindow.PacketsSyncRoot) {
-				MainWindow.AircraftPacket.latitude = (float) simData.Latitude;
-				MainWindow.AircraftPacket.longitude = (float) simData.Longitude;
-
-				MainWindow.AircraftPacket.pitch = (float) simData.Pitch;
-				MainWindow.AircraftPacket.yaw = (float) simData.Yaw;
-				MainWindow.AircraftPacket.roll = (float) (2 * Math.PI - simData.Roll);
-				MainWindow.AircraftPacket.slipAndSkid = (float) simData.SlipAndSkid / 127f;
-
-				MainWindow.AircraftPacket.altitude = (float) simData.Altitude;
-				MainWindow.AircraftPacket.speed = (float) simData.Speed;
-
-				MainWindow.AircraftPacket.pressure = (float) simData.Pressure;
-				MainWindow.AircraftPacket.temperature = (float) simData.Temperature;
-
-				//MainWindow.LogAircraftPacket();
-			}
+			MainWindow.HandleAircraftPacket((SimData) data.dwData[0]);
 		}
 		else {
 			Debug.WriteLine($"Unknown request ID: {data.dwRequestID}");
