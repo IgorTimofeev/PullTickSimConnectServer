@@ -124,7 +124,7 @@ public partial class MainWindow : Window {
 		lock (PacketsSyncRoot) {
 			Debug.WriteLine($"[FPV] -------------------------------");
 
-			Debug.WriteLine($"[FPV] Plane PYR: {AircraftPacket.pitch * 180f / MathF.PI} x {AircraftPacket.yaw * 180f / MathF.PI} x {AircraftPacket.roll * 180f / MathF.PI}");
+			Debug.WriteLine($"[FPV] Plane PYR: {AircraftPacket.pitch * MathF.PI / 180f} x {AircraftPacket.yaw * MathF.PI / 180f} x {AircraftPacket.roll * MathF.PI / 180f}");
 
 			GeocentricCoordinates geocentric = new(AircraftPacket.latitude, AircraftPacket.longitude, AircraftPacket.altitude);
 
@@ -153,7 +153,7 @@ public partial class MainWindow : Window {
 			var rotatedLength = rotated.Length();
 
 			AircraftPacket.flightPathPitch = rotatedLength == 0 ? 0 : MathF.Asin(rotated.Z / rotatedLength);
-			AircraftPacket.flightPathYaw = MathF.Atan2(rotated.Y, rotated.X);
+			AircraftPacket.flightPathYaw = rotatedLength == 0 ? 0 : MathF.Atan2(rotated.Y, rotated.X);
 
 			//AircraftPacket.flightPathYaw = 0;
 
