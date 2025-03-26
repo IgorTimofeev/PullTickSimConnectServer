@@ -124,7 +124,8 @@ public partial class MainWindow : Window {
 		lock (PacketsSyncRoot) {
 			Debug.WriteLine($"[FPV] -------------------------------");
 
-			Debug.WriteLine($"[FPV] Plane PYR: {AircraftPacket.pitch * MathF.PI / 180f} x {AircraftPacket.yaw * MathF.PI / 180f} x {AircraftPacket.roll * MathF.PI / 180f}");
+			Debug.WriteLine($"[FPV] Plane LL: {AircraftPacket.latitude / MathF.PI * 180f} x {AircraftPacket.longitude / MathF.PI * 180f}");
+			Debug.WriteLine($"[FPV] Plane PY: {AircraftPacket.pitch / MathF.PI * 180f} x {AircraftPacket.yaw / MathF.PI * 180f}");
 
 			GeocentricCoordinates geocentric = new(AircraftPacket.latitude, AircraftPacket.longitude, AircraftPacket.altitude);
 
@@ -145,19 +146,22 @@ public partial class MainWindow : Window {
 
 			// Transforming earth-based coordinate system to aircraft-based
 			Vector3 rotated = cartesianDelta;
-			rotated = rotateAroundZAxis(rotated, -AircraftPacket.longitude);
-			rotated = rotateAroundXAxis(rotated, -AircraftPacket.latitude + (90f / 180f * MathF.PI) );
+			//rotated = rotateAroundZAxis(rotated, -AircraftPacket.longitude);
+			//rotated = rotateAroundXAxis(rotated, -AircraftPacket.latitude + (90f / 180f * MathF.PI) );
 
-			Debug.WriteLine($"[FPV] Rotated: {rotated.X} x {rotated.Y} x {rotated.Z}");
+			//Debug.WriteLine($"[FPV] Rotated: {rotated.X} x {rotated.Y} x {rotated.Z}");
 
 			var rotatedLength = rotated.Length();
 
 			AircraftPacket.flightPathPitch = rotatedLength == 0 ? 0 : MathF.Asin(rotated.Z / rotatedLength);
 			AircraftPacket.flightPathYaw = rotatedLength == 0 ? 0 : MathF.Atan2(rotated.Y, rotated.X);
 
-			//AircraftPacket.flightPathYaw = 0;
+			Debug.WriteLine($"[FPV] Global PY: {AircraftPacket.flightPathPitch / MathF.PI * 180f} x {AircraftPacket.flightPathYaw / MathF.PI * 180f}");
 
-			Debug.WriteLine($"[FPV] Result PY: {AircraftPacket.flightPathPitch / MathF.PI * 180f} x {AircraftPacket.flightPathYaw / MathF.PI * 180f}");
+			AircraftPacket.flightPathPitch = AircraftPacket.flightPathPitch - AircraftPacket.latitude - MathF.PI / 2;
+			AircraftPacket.flightPathYaw = 0;
+
+			Debug.WriteLine($"[FPV] Local PY: {AircraftPacket.flightPathPitch / MathF.PI * 180f} x {AircraftPacket.flightPathYaw / MathF.PI * 180f}");
 		}
 
 		FlightPathVectorTimer.Change(TimeSpan.FromSeconds(1), Timeout.InfiniteTimeSpan);
