@@ -13,31 +13,6 @@ using System.Windows.Threading;
 
 namespace PullTickSimConnectServer;
 
-public class GeocentricCoordinates(float latitude, float longitude, float altitude) {
-	public GeocentricCoordinates() : this(0, 0, 0) {
-
-	}
-
-	public const float EquatorialRadius = 6378137;
-
-	public float Latitude { get; set; } = latitude;
-	public float Longitude { get; set; } = longitude;
-	public float Altitude { get; set; } = altitude;
-
-	public Vector3 ToCartesian() {
-		var radius = EquatorialRadius + Altitude;
-		var latCos = MathF.Cos(Latitude);
-
-		return new(
-			radius * latCos * MathF.Cos(Longitude),
-			radius * latCos * MathF.Sin(Longitude),
-			radius * MathF.Sin(Latitude)
-		);
-	}
-
-	public override string ToString() => $"{Latitude} x {Longitude} x {Altitude}";
-}
-
 public partial class MainWindow : Window {
 	public MainWindow() {
 		InitializeComponent();
@@ -116,7 +91,7 @@ public partial class MainWindow : Window {
 			AircraftPacket.temperature = (float) simData.Temperature;
 
 			AircraftPacket.longitude = 0;
-			AircraftPacket.altitude = 5000;
+			//AircraftPacket.altitude = 5000;
 		}
 	}
 
@@ -146,8 +121,8 @@ public partial class MainWindow : Window {
 
 			var deltaLength = delta.Length();
 
-			AircraftPacket.flightPathPitch = deltaLength == 0 ? 0 : AircraftPacket.latitude - MathF.PI / 2 - MathF.Atan2(delta.Z, delta.X) + AircraftPacket.pitch;
-			AircraftPacket.flightPathYaw = deltaLength == 0 ? 0 : MathF.Atan2(delta.Y, delta.X);
+			AircraftPacket.flightPathPitch = deltaLength == 0 ? 0 : MathF.PI / 2 - MathF.Atan2(delta.Z, delta.X) + AircraftPacket.latitude;
+			AircraftPacket.flightPathYaw = deltaLength == 0 ? 0 : -MathF.Atan2(delta.Y, delta.X);
 
 			//AircraftPacket.flightPathPitch = 30f / 180f * MathF.PI;
 			AircraftPacket.flightPathYaw = 0;

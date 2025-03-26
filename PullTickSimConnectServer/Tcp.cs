@@ -9,14 +9,11 @@ using System.Threading.Tasks;
 using System.Windows.Threading;
 
 namespace PullTickSimConnectServer {
-    public class TCP  {
-        public TCP(MainWindow mainWindow) {
-			MainWindow = mainWindow;
-		}
-
+    public class TCP(MainWindow mainWindow) {
 		bool _IsStarted = false;
 		public bool IsStarted {
 			get => _IsStarted;
+
 			private set {
 				if (value == _IsStarted)
 					return;
@@ -27,9 +24,9 @@ namespace PullTickSimConnectServer {
 			}
 		}
 
-		public event Action IsStartedChanged;
+		public event Action? IsStartedChanged;
 
-		MainWindow MainWindow { get; init; }
+		MainWindow MainWindow { get; init; } = mainWindow;
 		TcpListener? TcpListener = null;
 		CancellationTokenSource? StopCTS = null;
 
