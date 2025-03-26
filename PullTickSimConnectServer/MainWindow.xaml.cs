@@ -80,7 +80,7 @@ public partial class MainWindow : Window {
 	readonly Sim Sim;
 	readonly TCP TCP;
 
-	Vector3 OldFlightPathVectorCartesian = new();
+	Vector3 OldFPVCartesian = new();
 
 	public void HandleRemotePacket() {
 		if (!Sim.IsConnected)
@@ -104,8 +104,6 @@ public partial class MainWindow : Window {
 			AircraftPacket.latitude = (float) simData.Latitude;
 			AircraftPacket.longitude = (float) simData.Longitude;
 
-			//AircraftPacket.longitude = 0;
-
 			AircraftPacket.pitch = (float) -simData.Pitch;
 			AircraftPacket.yaw = (float) simData.Yaw;
 			AircraftPacket.roll = (float) -simData.Roll;
@@ -116,9 +114,11 @@ public partial class MainWindow : Window {
 
 			AircraftPacket.pressure = (float) simData.Pressure;
 			AircraftPacket.temperature = (float) simData.Temperature;
+
+			AircraftPacket.longitude = 0;
+			AircraftPacket.altitude = 5000;
 		}
 	}
-
 
 	public void UpdateFlightPathVector(object? _) {
 		lock (PacketsSyncRoot) {
@@ -139,32 +139,23 @@ public partial class MainWindow : Window {
 			AircraftPacket.z = cartesian.Z;
 
 			// FPV
-			var cartesianDelta = cartesian - OldFlightPathVectorCartesian;
-			OldFlightPathVectorCartesian = cartesian;
+			var delta = cartesian - OldFPVCartesian;
+			OldFPVCartesian = cartesian;
 
-			Debug.WriteLine($"[FPV] Delta: {cartesianDelta.X} x {cartesianDelta.Y} x {cartesianDelta.Z}");
+			Debug.WriteLine($"[FPV] Delta: {delta.X} x {delta.Y} x {delta.Z}");
 
-			// Transforming earth-based coordinate system to aircraft-based
-			Vector3 rotated = cartesianDelta;
-			//rotated = rotateAroundZAxis(rotated, -AircraftPacket.longitude);
-			//rotated = rotateAroundXAxis(rotated, -AircraftPacket.latitude + (90f / 180f * MathF.PI) );
+			var deltaLength = delta.Length();
 
-			//Debug.WriteLine($"[FPV] Rotated: {rotated.X} x {rotated.Y} x {rotated.Z}");
+			AircraftPacket.flightPathPitch = deltaLength == 0 ? 0 : AircraftPacket.latitude - MathF.PI / 2 - MathF.Atan2(delta.Z, delta.X) + AircraftPacket.pitch;
+			AircraftPacket.flightPathYaw = deltaLength == 0 ? 0 : MathF.Atan2(delta.Y, delta.X);
 
-			var rotatedLength = rotated.Length();
-
-			AircraftPacket.flightPathPitch = rotatedLength == 0 ? 0 : MathF.Asin(rotated.Z / rotatedLength);
-			AircraftPacket.flightPathYaw = rotatedLength == 0 ? 0 : MathF.Atan2(rotated.Y, rotated.X);
-
-			Debug.WriteLine($"[FPV] Global PY: {AircraftPacket.flightPathPitch / MathF.PI * 180f} x {AircraftPacket.flightPathYaw / MathF.PI * 180f}");
-
-			AircraftPacket.flightPathPitch = AircraftPacket.flightPathPitch - AircraftPacket.latitude - MathF.PI / 2;
+			//AircraftPacket.flightPathPitch = 30f / 180f * MathF.PI;
 			AircraftPacket.flightPathYaw = 0;
 
-			Debug.WriteLine($"[FPV] Local PY: {AircraftPacket.flightPathPitch / MathF.PI * 180f} x {AircraftPacket.flightPathYaw / MathF.PI * 180f}");
+			Debug.WriteLine($"[FPV] FPV PY: {AircraftPacket.flightPathPitch / MathF.PI * 180f} x {AircraftPacket.flightPathYaw / MathF.PI * 180f}");
 		}
 
-		FlightPathVectorTimer.Change(TimeSpan.FromSeconds(1), Timeout.InfiniteTimeSpan);
+		FlightPathVectorTimer.Change(TimeSpan.FromMilliseconds(500), Timeout.InfiniteTimeSpan);
 	}
 
 	Vector3 rotateAroundXAxis(Vector3 vector, float angle) {
