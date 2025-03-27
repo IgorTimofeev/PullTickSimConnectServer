@@ -123,12 +123,14 @@ public partial class MainWindow : Window {
 
 			var rotated = delta;
 			rotated = rotateAroundZAxis(rotated, -AircraftPacket.longitude);
-			rotated = rotateAroundYAxis(rotated, MathF.PI / 2 + AircraftPacket.latitude);
-			rotated = rotateAroundZAxis(rotated, -AircraftPacket.yaw);
+			rotated = rotateAroundYAxis(rotated, -MathF.PI / 2f + AircraftPacket.latitude);
+			rotated = rotateAroundZAxis(rotated, AircraftPacket.yaw);
+
+			Debug.WriteLine($"[FPV] Rotated: {rotated.X} x {rotated.Y} x {rotated.Z}");
 
 			var len = rotated.Length();
-			AircraftPacket.flightPathPitch = len == 0 ? 0 : -MathF.Asin(rotated.Z / len);
-			AircraftPacket.flightPathYaw = len == 0 ? 0 : MathF.Atan2(rotated.Y, rotated.X);
+			AircraftPacket.flightPathPitch = len == 0 ? 0 : MathF.Asin(rotated.Z / len);
+			AircraftPacket.flightPathYaw = len == 0 ? 0 : -MathF.Atan(rotated.Y / rotated.X);
 
 			//AircraftPacket.flightPathPitch = 20f / 180f * MathF.PI;
 			//AircraftPacket.flightPathYaw = 0;
