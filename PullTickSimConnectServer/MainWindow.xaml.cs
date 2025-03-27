@@ -130,7 +130,7 @@ public partial class MainWindow : Window {
 
 			var len = rotated.Length();
 			AircraftPacket.flightPathPitch = len == 0 ? 0 : MathF.Asin(rotated.Z / len);
-			AircraftPacket.flightPathYaw = len == 0 ? 0 : -MathF.Atan(rotated.Y / rotated.X);
+			AircraftPacket.flightPathYaw = len == 0 ? 0 : -MathF.Atan(rotated.Y / rotated.X) - (12f / 180f * MathF.PI);
 
 			//AircraftPacket.flightPathPitch = 20f / 180f * MathF.PI;
 			//AircraftPacket.flightPathYaw = 0;
