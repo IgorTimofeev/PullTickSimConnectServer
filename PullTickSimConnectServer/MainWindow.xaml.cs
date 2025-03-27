@@ -90,7 +90,9 @@ public partial class MainWindow : Window {
 			AircraftPacket.pressure = (float) simData.Pressure;
 			AircraftPacket.temperature = (float) simData.Temperature;
 
-			AircraftPacket.longitude = 0;
+			//AircraftPacket.latitude -= (59f / 180f * MathF.PI);
+			//AircraftPacket.longitude = 0;
+			//AircraftPacket.yaw = 0;
 			//AircraftPacket.altitude = 5000;
 		}
 	}
@@ -102,9 +104,7 @@ public partial class MainWindow : Window {
 			Debug.WriteLine($"[FPV] Plane LL: {AircraftPacket.latitude / MathF.PI * 180f} x {AircraftPacket.longitude / MathF.PI * 180f}");
 			Debug.WriteLine($"[FPV] Plane PY: {AircraftPacket.pitch / MathF.PI * 180f} x {AircraftPacket.yaw / MathF.PI * 180f}");
 
-			GeocentricCoordinates geocentric = new(AircraftPacket.latitude, AircraftPacket.longitude, AircraftPacket.altitude);
-
-			Debug.WriteLine($"[FPV] Geocentric: {geocentric}");
+			GeocentricCoordinates geocentric = new(AircraftPacket.latitude, AircraftPacket.longitude, AircraftPacket.altitude / 3.2808399f);
 
 			var cartesian = geocentric.ToCartesian();
 
@@ -113,24 +113,30 @@ public partial class MainWindow : Window {
 			AircraftPacket.y = cartesian.Y;
 			AircraftPacket.z = cartesian.Z;
 
+			Debug.WriteLine($"[FPV] Cartesian: {cartesian.X} x {cartesian.Y} x {cartesian.Z}");
+
 			// FPV
 			var delta = cartesian - OldFPVCartesian;
 			OldFPVCartesian = cartesian;
 
 			Debug.WriteLine($"[FPV] Delta: {delta.X} x {delta.Y} x {delta.Z}");
 
-			var deltaLength = delta.Length();
+			var rotated = delta;
+			rotated = rotateAroundZAxis(rotated, -AircraftPacket.longitude);
+			rotated = rotateAroundYAxis(rotated, MathF.PI / 2 + AircraftPacket.latitude);
+			rotated = rotateAroundZAxis(rotated, -AircraftPacket.yaw);
 
-			AircraftPacket.flightPathPitch = deltaLength == 0 ? 0 : MathF.PI / 2 - MathF.Atan2(delta.Z, delta.X) + AircraftPacket.latitude;
-			AircraftPacket.flightPathYaw = deltaLength == 0 ? 0 : -MathF.Atan2(delta.Y, delta.X);
+			var len = rotated.Length();
+			AircraftPacket.flightPathPitch = len == 0 ? 0 : -MathF.Asin(rotated.Z / len);
+			AircraftPacket.flightPathYaw = len == 0 ? 0 : -MathF.Atan2(rotated.Y, rotated.X);
 
-			//AircraftPacket.flightPathPitch = 30f / 180f * MathF.PI;
-			AircraftPacket.flightPathYaw = 0;
+			//AircraftPacket.flightPathPitch = 20f / 180f * MathF.PI;
+			//AircraftPacket.flightPathYaw = 0;
 
 			Debug.WriteLine($"[FPV] FPV PY: {AircraftPacket.flightPathPitch / MathF.PI * 180f} x {AircraftPacket.flightPathYaw / MathF.PI * 180f}");
 		}
 
-		FlightPathVectorTimer.Change(TimeSpan.FromMilliseconds(500), Timeout.InfiniteTimeSpan);
+		FlightPathVectorTimer.Change(TimeSpan.FromMilliseconds(1000), Timeout.InfiniteTimeSpan);
 	}
 
 	Vector3 rotateAroundXAxis(Vector3 vector, float angle) {
@@ -151,7 +157,7 @@ public partial class MainWindow : Window {
 		return new(
 			angleCos * vector.X + angleSin * vector.Z,
 			vector.Y,
-			-angleSin * vector.Z + angleCos * vector.Z
+			-angleSin * vector.X + angleCos * vector.Z
 		);
 	}
 

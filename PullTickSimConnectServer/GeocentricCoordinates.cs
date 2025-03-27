@@ -8,14 +8,13 @@ public class GeocentricCoordinates(float latitude, float longitude, float altitu
 	}
 
 	public const float EquatorialRadius = 6378137;
-	public const float EquatorialRadiusFeet = EquatorialRadius * 3.280839895f;
 
 	public float Latitude { get; set; } = latitude;
 	public float Longitude { get; set; } = longitude;
 	public float Altitude { get; set; } = altitude;
 
 	public Vector3 ToCartesian() {
-		var radius = EquatorialRadiusFeet + Altitude;
+		var radius = EquatorialRadius + Altitude;
 		var latCos = MathF.Cos(Latitude);
 
 		return new(
@@ -24,6 +23,4 @@ public class GeocentricCoordinates(float latitude, float longitude, float altitu
 			radius * MathF.Sin(Latitude)
 		);
 	}
-
-	public override string ToString() => $"{Latitude} x {Longitude} x {Altitude}";
 }
