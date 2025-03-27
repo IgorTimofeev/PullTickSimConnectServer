@@ -104,9 +104,7 @@ public partial class MainWindow : Window {
 			Debug.WriteLine($"[FPV] Plane LL: {AircraftPacket.latitude / MathF.PI * 180f} x {AircraftPacket.longitude / MathF.PI * 180f}");
 			Debug.WriteLine($"[FPV] Plane PY: {AircraftPacket.pitch / MathF.PI * 180f} x {AircraftPacket.yaw / MathF.PI * 180f}");
 
-			GeocentricCoordinates geocentric = new(AircraftPacket.latitude, AircraftPacket.longitude, AircraftPacket.altitude / 3.2808399f);
-
-			var cartesian = geocentric.ToCartesian();
+			var cartesian = PolarToCartesian(AircraftPacket.latitude, AircraftPacket.longitude, AircraftPacket.altitude / 3.2808399f);
 
 			// Cartesian
 			AircraftPacket.x = cartesian.X;
@@ -122,15 +120,16 @@ public partial class MainWindow : Window {
 			Debug.WriteLine($"[FPV] Delta: {delta.X} x {delta.Y} x {delta.Z}");
 
 			var rotated = delta;
-			rotated = rotateAroundZAxis(rotated, -AircraftPacket.longitude);
-			rotated = rotateAroundYAxis(rotated, -MathF.PI / 2f + AircraftPacket.latitude);
-			rotated = rotateAroundZAxis(rotated, AircraftPacket.yaw);
+			rotated = RotateAroundZAxis(rotated, -AircraftPacket.longitude);
+			rotated = RotateAroundYAxis(rotated, -MathF.PI / 2f + AircraftPacket.latitude);
+			rotated = RotateAroundZAxis(rotated, AircraftPacket.yaw);
 
 			Debug.WriteLine($"[FPV] Rotated: {rotated.X} x {rotated.Y} x {rotated.Z}");
 
 			var len = rotated.Length();
+
 			AircraftPacket.flightPathPitch = len == 0 ? 0 : MathF.Asin(rotated.Z / len);
-			AircraftPacket.flightPathYaw = len == 0 ? 0 : -MathF.Atan(rotated.Y / rotated.X) - (12f / 180f * MathF.PI);
+			AircraftPacket.flightPathYaw = len == 0 ? 0 : -MathF.Atan(rotated.Y / rotated.X);
 
 			//AircraftPacket.flightPathPitch = 20f / 180f * MathF.PI;
 			//AircraftPacket.flightPathYaw = 0;
@@ -141,7 +140,25 @@ public partial class MainWindow : Window {
 		FlightPathVectorTimer.Change(TimeSpan.FromMilliseconds(1000), Timeout.InfiniteTimeSpan);
 	}
 
-	Vector3 rotateAroundXAxis(Vector3 vector, float angle) {
+	public static Vector3 PolarToCartesian(float latitude, float longitude, float altitude) {
+		const float earthEquatorialRadius = 6378137f;
+		const float earchPolarRadius = 6356752.3142f;
+
+		var latCos = MathF.Cos(latitude);
+		var latSin = MathF.Sin(latitude);
+
+		var e2 = 1 - (earchPolarRadius * earchPolarRadius) / (earthEquatorialRadius * earthEquatorialRadius);
+		var n = earthEquatorialRadius / MathF.Sqrt(1 - e2 * latSin * latSin);
+		var h = earthEquatorialRadius + altitude;
+
+		return new(
+			(n + h) * latCos * MathF.Cos(longitude),
+			(n + h) * latCos * MathF.Sin(longitude),
+			((1 - e2) * n + h) * latSin
+		);
+	}
+
+	Vector3 RotateAroundXAxis(Vector3 vector, float angle) {
 		var angleSin = MathF.Sin(angle);
 		var angleCos = MathF.Cos(angle);
 
@@ -152,7 +169,7 @@ public partial class MainWindow : Window {
 		);
 	}
 
-	Vector3 rotateAroundYAxis(Vector3 vector, float angle) {
+	Vector3 RotateAroundYAxis(Vector3 vector, float angle) {
 		var angleSin = MathF.Sin(angle);
 		var angleCos = MathF.Cos(angle);
 
@@ -163,7 +180,7 @@ public partial class MainWindow : Window {
 		);
 	}
 
-	Vector3 rotateAroundZAxis(Vector3 vector, float angle) {
+	Vector3 RotateAroundZAxis(Vector3 vector, float angle) {
 		var angleSin = MathF.Sin(angle);
 		var angleCos = MathF.Cos(angle);
 
