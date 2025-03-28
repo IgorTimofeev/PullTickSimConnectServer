@@ -18,10 +18,14 @@ public struct SimData {
 	public double SlipAndSkid;
 
 	public double Altitude;
-	public double Speed;
+	public double AirSpeed;
 
 	public double Pressure;
 	public double Temperature;
+
+	public double WindDirectionDegrees;
+	public double WindSpeedKnots;
+
 }
 
 public enum SimDataRequest {
@@ -156,6 +160,9 @@ public class Sim {
 
 			SimConnect.AddToDataDefinition(SimDefinition.SimData, "BAROMETER PRESSURE", "millibars", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
 			SimConnect.AddToDataDefinition(SimDefinition.SimData, "AMBIENT TEMPERATURE", "celsius", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+
+			SimConnect.AddToDataDefinition(SimDefinition.SimData, "AMBIENT WIND DIRECTION", "degrees", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+			SimConnect.AddToDataDefinition(SimDefinition.SimData, "AMBIENT WIND VELOCITY", "knots", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
 
 			SimConnect.RegisterDataDefineStruct<SimData>(SimDefinition.SimData);
 

@@ -42,6 +42,9 @@ public partial class MainWindow : Window {
 		};
 	}
 
+	const float EarthEquatorialRadius = 6378137f;
+	const float EarchPolarRadius = 6356752.3142f;
+
 	public object PacketsSyncRoot { get; init; } = new object();
 
 	public RemotePacket RemotePacket;
@@ -85,10 +88,13 @@ public partial class MainWindow : Window {
 			AircraftPacket.slipAndSkid = (float) simData.SlipAndSkid / 127f;
 
 			AircraftPacket.altitude = (float) simData.Altitude;
-			AircraftPacket.speed = (float) simData.Speed;
+			AircraftPacket.airSpeed = (float) simData.AirSpeed;
 
 			AircraftPacket.pressure = (float) simData.Pressure;
 			AircraftPacket.temperature = (float) simData.Temperature;
+
+			AircraftPacket.windDirection = (float) simData.WindDirectionDegrees / 180f * MathF.PI;
+			AircraftPacket.windSpeed = (float) simData.WindSpeedKnots;
 
 			//AircraftPacket.latitude -= (59f / 180f * MathF.PI);
 			//AircraftPacket.longitude = 0;
@@ -98,13 +104,15 @@ public partial class MainWindow : Window {
 	}
 
 	public void UpdateFlightPathVector(object? _) {
+		var interval = 1.0f;
+
 		lock (PacketsSyncRoot) {
 			Debug.WriteLine($"[FPV] -------------------------------");
 
-			Debug.WriteLine($"[FPV] Plane LL: {AircraftPacket.latitude / MathF.PI * 180f} x {AircraftPacket.longitude / MathF.PI * 180f}");
+			Debug.WriteLine($"[FPV] Plane LLA: {AircraftPacket.latitude / MathF.PI * 180f} x {AircraftPacket.longitude / MathF.PI * 180f} x {AircraftPacket.altitude} ft");
 			Debug.WriteLine($"[FPV] Plane PY: {AircraftPacket.pitch / MathF.PI * 180f} x {AircraftPacket.yaw / MathF.PI * 180f}");
 
-			var cartesian = PolarToCartesian(AircraftPacket.latitude, AircraftPacket.longitude, AircraftPacket.altitude / 3.2808399f);
+			var cartesian = GeodeticToCartesian(AircraftPacket.latitude, AircraftPacket.longitude, AircraftPacket.altitude * 0.3048f);
 
 			// Cartesian
 			AircraftPacket.x = cartesian.X;
@@ -113,43 +121,70 @@ public partial class MainWindow : Window {
 
 			Debug.WriteLine($"[FPV] Cartesian: {cartesian.X} x {cartesian.Y} x {cartesian.Z}");
 
-			// FPV
 			var delta = cartesian - OldFPVCartesian;
 			OldFPVCartesian = cartesian;
 
 			Debug.WriteLine($"[FPV] Delta: {delta.X} x {delta.Y} x {delta.Z}");
 
-			var rotated = delta;
-			rotated = RotateAroundZAxis(rotated, -AircraftPacket.longitude);
-			rotated = RotateAroundYAxis(rotated, -MathF.PI / 2f + AircraftPacket.latitude);
-			rotated = RotateAroundZAxis(rotated, AircraftPacket.yaw);
+			var deltaLength = delta.Length();
 
-			Debug.WriteLine($"[FPV] Rotated: {rotated.X} x {rotated.Y} x {rotated.Z}");
+			if (deltaLength > 0) {
+				// Ground speed
+				// deltaLength m - interval s
+				// x m - 1 s
 
-			var len = rotated.Length();
+				// M/S
+				AircraftPacket.groundSpeed = deltaLength * 1f / interval;
+				Debug.WriteLine($"[FPV] G/S: {AircraftPacket.groundSpeed} m/s");
 
-			AircraftPacket.flightPathPitch = len == 0 ? 0 : MathF.Asin(rotated.Z / len);
-			AircraftPacket.flightPathYaw = len == 0 ? 0 : -MathF.Atan(rotated.Y / rotated.X);
+				// Knots
+				AircraftPacket.groundSpeed /= 0.5144444444f;
+				Debug.WriteLine($"[FPV] G/S: {AircraftPacket.groundSpeed} kt");
 
-			//AircraftPacket.flightPathPitch = 20f / 180f * MathF.PI;
-			//AircraftPacket.flightPathYaw = 0;
+				// FPV
+				var rotated = delta;
+				rotated = RotateAroundZAxis(rotated, -AircraftPacket.longitude);
+				rotated = RotateAroundYAxis(rotated, -MathF.PI / 2f + AircraftPacket.latitude);
+				rotated = RotateAroundZAxis(rotated, AircraftPacket.yaw);
+
+				Debug.WriteLine($"[FPV] Rotated: {rotated.X} x {rotated.Y} x {rotated.Z}");
+
+				AircraftPacket.flightPathPitch = deltaLength == 0 ? 0 : MathF.Asin(rotated.Z / deltaLength);
+				AircraftPacket.flightPathYaw = deltaLength == 0 ? 0 : -MathF.Atan(rotated.Y / rotated.X);
+
+				//AircraftPacket.flightPathPitch = 20f / 180f * MathF.PI;
+				//AircraftPacket.flightPathYaw = 0;
+			}
+			else {
+				AircraftPacket.groundSpeed = 0;
+				AircraftPacket.flightPathPitch = 0;
+				AircraftPacket.flightPathYaw = 0;
+			}
 
 			Debug.WriteLine($"[FPV] FPV PY: {AircraftPacket.flightPathPitch / MathF.PI * 180f} x {AircraftPacket.flightPathYaw / MathF.PI * 180f}");
 		}
 
-		FlightPathVectorTimer.Change(TimeSpan.FromMilliseconds(1000), Timeout.InfiniteTimeSpan);
+		FlightPathVectorTimer.Change(TimeSpan.FromSeconds(interval), Timeout.InfiniteTimeSpan);
 	}
 
-	public static Vector3 PolarToCartesian(float latitude, float longitude, float altitude) {
-		const float earthEquatorialRadius = 6378137f;
-		const float earchPolarRadius = 6356752.3142f;
+	public static Vector3 GeodeticToCartesian(float latitude, float longitude, float altitude) {
+		var radius = EarthEquatorialRadius + altitude;
+		var latCos = MathF.Cos(latitude);
 
+		return new(
+			radius * latCos * MathF.Cos(longitude),
+			radius * latCos * MathF.Sin(longitude),
+			radius * MathF.Sin(latitude)
+		);
+	}
+
+	public static Vector3 GeodeticToECEFCartesian(float latitude, float longitude, float altitude) {
 		var latCos = MathF.Cos(latitude);
 		var latSin = MathF.Sin(latitude);
 
-		var e2 = 1 - (earchPolarRadius * earchPolarRadius) / (earthEquatorialRadius * earthEquatorialRadius);
-		var n = earthEquatorialRadius / MathF.Sqrt(1 - e2 * latSin * latSin);
-		var h = earthEquatorialRadius + altitude;
+		var e2 = 1 - (EarchPolarRadius * EarchPolarRadius) / (EarthEquatorialRadius * EarthEquatorialRadius);
+		var n = EarthEquatorialRadius / MathF.Sqrt(1 - e2 * latSin * latSin);
+		var h = EarthEquatorialRadius + altitude;
 
 		return new(
 			(n + h) * latCos * MathF.Cos(longitude),

@@ -32,12 +32,16 @@ namespace PullTickSimConnectServer
 		public float yaw;
 		public float roll;
 
-		public float speed;
+		public float airSpeed;
+		public float groundSpeed;
 
 		public float flightPathPitch;
 		public float flightPathYaw;
 
 		public float slipAndSkid;
+
+		public float windDirection;
+		public float windSpeed;
 
 		public float pressure;
 		public float temperature;
