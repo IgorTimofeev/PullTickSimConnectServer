@@ -9,22 +9,21 @@ namespace PullTickSimConnectServer;
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public struct SimData {
-	public double Latitude;
-	public double Longitude;
+	public double LatitudeRad;
+	public double LongitudeRad;
 
-	public double Pitch;
-	public double Yaw;
-	public double Roll;
+	public double PitchRad;
+	public double YawRad;
+	public double RollRad;
 	public double SlipAndSkid;
 
-	public double Altitude;
-	public double AirSpeed;
+	public double PressureHPa;
+	public double AirSpeedKt;
 
-	public double Pressure;
-	public double Temperature;
+	public double TemperatureC;
 
-	public double WindDirectionDegrees;
-	public double WindSpeedKnots;
+	public double WindDirectionDeg;
+	public double WindSpeedKt;
 
 }
 
@@ -50,6 +49,10 @@ public enum SimEvent {
 	GEAR_SET,
 
 	AP_SPD_VAR_SET,
+
+	AUTO_THROTTLE_ARM,
+	AUTO_THROTTLE_DISCONNECT,
+
 	HEADING_BUG_SET,
 	AP_ALT_VAR_SET_ENGLISH,
 
@@ -57,7 +60,9 @@ public enum SimEvent {
 	FLIGHT_LEVEL_CHANGE_OFF,
 
 	AP_HDG_HOLD_ON,
-	AP_HDG_HOLD_OFF
+	AP_HDG_HOLD_OFF,
+
+	KOHLSMAN_SET
 }
 
 public enum SimNotificationGroup {
@@ -155,10 +160,9 @@ public class Sim {
 			SimConnect.AddToDataDefinition(SimDefinition.SimData, "PLANE BANK DEGREES", "radians", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
 			SimConnect.AddToDataDefinition(SimDefinition.SimData, "TURN COORDINATOR BALL", "Position 128", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
 
-			SimConnect.AddToDataDefinition(SimDefinition.SimData, "PLANE ALTITUDE", "feet", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+			SimConnect.AddToDataDefinition(SimDefinition.SimData, "BAROMETER PRESSURE", "millibars", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
 			SimConnect.AddToDataDefinition(SimDefinition.SimData, "AIRSPEED INDICATED", "knots", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
 
-			SimConnect.AddToDataDefinition(SimDefinition.SimData, "BAROMETER PRESSURE", "millibars", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
 			SimConnect.AddToDataDefinition(SimDefinition.SimData, "AMBIENT TEMPERATURE", "celsius", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
 
 			SimConnect.AddToDataDefinition(SimDefinition.SimData, "AMBIENT WIND DIRECTION", "degrees", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
@@ -343,23 +347,31 @@ public class Sim {
 		SendMax16383Event(SimEvent.SPOILERS_SET, value);
 	}
 
-	public void SendSpeedEvent(uint value) {
+	public void SendAPSpeedEvent(uint value) {
 		TransmitEventEX1(SimEvent.AP_SPD_VAR_SET, value);
 	}
 
-	public void SendHeadingEvent(uint value) {
-		TransmitEventEX1(SimEvent.HEADING_BUG_SET, value);
+	public void SendAPHeadingEvent(ushort degrees) {
+		TransmitEvent(SimEvent.HEADING_BUG_SET, degrees);
 	}
 
-	public void SendAltitudeEvent(uint value) {
-		TransmitEventEX1(SimEvent.AP_ALT_VAR_SET_ENGLISH, value);
+	public void SendAPAltitudeEvent(uint feet) {
+		TransmitEventEX1(SimEvent.AP_ALT_VAR_SET_ENGLISH, feet);
 	}
 
-	public void SendAPFLCEvent(bool value) {
+	public void SendAPLevelChangeEvent(bool value) {
 		TransmitEvent(value ? SimEvent.FLIGHT_LEVEL_CHANGE_ON : SimEvent.FLIGHT_LEVEL_CHANGE_OFF);
 	}
 
 	public void SendAPHDGHoldEvent(bool value) {
 		TransmitEvent(value ? SimEvent.AP_HDG_HOLD_ON : SimEvent.AP_HDG_HOLD_OFF);
+	}
+
+	public void SendAltimeterPressureEvent(uint pascals) {
+		TransmitEventEX1(SimEvent.KOHLSMAN_SET, (uint) (pascals / 100f * 16f));
+	}
+
+	public void SendAutoThrottleEvent(bool state) {
+		TransmitEvent(state ? SimEvent.AUTO_THROTTLE_ARM : SimEvent.AUTO_THROTTLE_DISCONNECT, 0);
 	}
 }

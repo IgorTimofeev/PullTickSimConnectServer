@@ -14,36 +14,40 @@ namespace PullTickSimConnectServer
 		public ushort flaps;
 		public ushort spoilers;
 
+		public uint altimeterPressurePa;
+
+		public ushort autopilotAirspeedMs;
+		public bool autopilotAutoThrottle;
+
+		public ushort autopilotHeadingDeg;
+		public bool autopilotHeadingHold;
+
+		public ushort autopilotAltitudeM;
+		public bool autopilotLevelChange;
+
 		public bool landingGear;
 		public bool strobeLights;
 	}
 
 	[StructLayout(LayoutKind.Sequential, Pack = 1)]
 	public struct AircraftPacket {
-		public float latitude;
-		public float longitude;
-		public float altitude;
+		public float latitudeRad;
+		public float longitudeRad;
+		public float altitudeM;
 
-		public float x;
-		public float y;
-		public float z;
+		public float pitchRad;
+		public float yawRad;
+		public float rollRad;
 
-		public float pitch;
-		public float yaw;
-		public float roll;
-
-		public float airSpeed;
-		public float groundSpeed;
+		public float airSpeedMs;
+		public float groundSpeedMs;
 
 		public float flightPathPitch;
 		public float flightPathYaw;
 
-		public float slipAndSkid;
+		public short slipAndSkid;
 
-		public float windDirection;
-		public float windSpeed;
-
-		public float pressure;
-		public float temperature;
+		public ushort windDirectionDeg;
+		public float windSpeedMs;
 	}
 }
