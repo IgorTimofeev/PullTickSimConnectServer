@@ -104,22 +104,16 @@ public partial class MainWindow : Window {
 			AircraftPacket.windDirectionDeg = (ushort) simData.WindDirectionDeg;
 			AircraftPacket.windSpeedMs = KnotsToMetersPerSecond((float) simData.WindSpeedKt);
 
-			// Pressure
+			// Test
+			//AircraftPacket.rollRad = 0;
+			//AircraftPacket.pitchRad = DegreesToRadians(25);
+
 
 			//AircraftPacket.latitudeRad -= (59f / 180f * MathF.PI);
 			//AircraftPacket.longitudeRad = 0;
 			//AircraftPacket.yawRad = 0;
 			//AircraftPacket.altitudeM = 5000;
 		}
-	}
-
-	static double PressureToAltitude(double referencePressurePa, double pressurePa) {
-		const double T0 = 288.15;
-		const double L = 0.0065;
-		const double RS = 287.058;
-		const double g = 9.80665;
-
-		return T0 / L * (1 - Math.Pow(pressurePa / referencePressurePa, RS * L / g));
 	}
 
 	public void UpdateFlightPathVector(object? _) {
@@ -173,6 +167,9 @@ public partial class MainWindow : Window {
 			Debug.WriteLine($"[FPV] FPV PY: {RadiansToDegrees(AircraftPacket.flightPathPitch)} x {RadiansToDegrees(AircraftPacket.flightPathYaw)}");
 		}
 
+		//AircraftPacket.groundSpeedMs = 100;
+		//AircraftPacket.flightPathPitch = AircraftPacket.pitchRad;
+
 		FlightPathVectorTimer.Change(TimeSpan.FromSeconds(interval), Timeout.InfiniteTimeSpan);
 	}
 
@@ -184,6 +181,15 @@ public partial class MainWindow : Window {
 
 	public static float KnotsToMetersPerSecond(float knots) => knots * 0.5144444444f;
 	public static float MetersPerSecondToKnots(float metersPerSecond) => metersPerSecond / 0.5144444444f;
+
+	public static double PressureToAltitude(double referencePressurePa, double pressurePa) {
+		const double T0 = 288.15;
+		const double L = 0.0065;
+		const double RS = 287.058;
+		const double g = 9.80665;
+
+		return T0 / L * (1 - Math.Pow(pressurePa / referencePressurePa, RS * L / g));
+	}
 
 	public static Vector3 GeodeticToCartesian(float latitude, float longitude, float altitude) {
 		var radius = EarthEquatorialRadiusM + altitude;
