@@ -47,8 +47,11 @@ public partial class MainWindow : Window {
 
 	public object PacketsSyncRoot { get; init; } = new object();
 
-	public RemotePacket RemotePacket;
-	public AircraftPacket AircraftPacket;
+	public RemotePacket RemotePacket = new() {
+		altimeterPressurePa = 101325
+	};
+
+	public AircraftPacket AircraftPacket = new();
 
 	public static unsafe int RemotePacketSize => sizeof(RemotePacket);
 	public static unsafe int AircraftPacketSize => sizeof(AircraftPacket);
@@ -58,7 +61,7 @@ public partial class MainWindow : Window {
 	readonly Sim Sim;
 	readonly TCP TCP;
 
-	Vector3 OldFPVCartesian = new();
+	Vector3 OldFPVCartesian = new(float.NaN, float.NaN, float.NaN);
 
 	public void HandleRemotePacket() {
 		if (!Sim.IsConnected)
@@ -125,13 +128,22 @@ public partial class MainWindow : Window {
 			Debug.WriteLine($"[FPV] Plane LLA: {RadiansToDegrees(AircraftPacket.latitudeRad)} x {RadiansToDegrees(AircraftPacket.longitudeRad)} x {AircraftPacket.altitudeM} m");
 			Debug.WriteLine($"[FPV] Plane PY: {RadiansToDegrees(AircraftPacket.pitchRad)} x {RadiansToDegrees(AircraftPacket.yawRad)}");
 
+			// Cartesian
 			var cartesian = GeodeticToCartesian(AircraftPacket.latitudeRad, AircraftPacket.longitudeRad, AircraftPacket.altitudeM);
 
-			// Cartesian
 			Debug.WriteLine($"[FPV] Cartesian: {cartesian.X} x {cartesian.Y} x {cartesian.Z}");
 
-			var delta = cartesian - OldFPVCartesian;
-			OldFPVCartesian = cartesian;
+			Vector3 delta;
+
+			// First call
+			if (float.IsNaN(OldFPVCartesian.X)) {
+				delta = new();
+				OldFPVCartesian = cartesian;
+			}
+			else {
+				delta = cartesian - OldFPVCartesian;
+				OldFPVCartesian = cartesian;
+			}
 
 			Debug.WriteLine($"[FPV] Delta: {delta.X} x {delta.Y} x {delta.Z}");
 
