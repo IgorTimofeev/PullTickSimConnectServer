@@ -25,6 +25,8 @@ public struct SimData {
 	public double WindDirectionDeg;
 	public double WindSpeedKt;
 
+	public double AccelerationBodyXFt;
+
 }
 
 public enum SimDataRequest {
@@ -167,6 +169,8 @@ public class Sim {
 
 			SimConnect.AddToDataDefinition(SimDefinition.SimData, "AMBIENT WIND DIRECTION", "degrees", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
 			SimConnect.AddToDataDefinition(SimDefinition.SimData, "AMBIENT WIND VELOCITY", "knots", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+
+			SimConnect.AddToDataDefinition(SimDefinition.SimData, "ACCELERATION BODY X", "ft", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
 
 			SimConnect.RegisterDataDefineStruct<SimData>(SimDefinition.SimData);
 

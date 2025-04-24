@@ -99,7 +99,38 @@ public partial class MainWindow : Window {
 			AircraftPacket.pitchRad = (float) -simData.PitchRad;
 			AircraftPacket.yawRad = (float) simData.YawRad;
 			AircraftPacket.rollRad = (float) -simData.RollRad;
-			AircraftPacket.slipAndSkid = (short) (simData.SlipAndSkid / 127d * (0xFFFF / 2d));
+
+			// Usually, the amount of slip is expressed as a G-load in [-1; 1] range.
+			// To determine it, we just need to take the lateral acceleration along
+			// aircraft abeam using using accelerometer. This acceleration is formed by
+			// many factors, but only 2 of them are most significant:
+			//
+			// The first is the centrifugal force arising from the yaw of the
+			// aircraft. The greater the yaw, the greater the lateral acceleration - it's
+			// simple. This is the force that interests us most, and we need to find it.
+
+			// The second factor is the centrifugal force arising when the aircraft rolls, the
+			// vector of which is always directed downwards from the bottom of the fuselage.
+			// If the aircraft is leveled with the horizon, this force is equal to 0 and does
+			// not affect acceleration in any way. However, the greater the bank angle, the
+			// more this force will tend to 1G and the more it will affect the lateral
+			// acceleration. Do you know what this looks like? A sine. Yes, the sine of the
+			// bank angle multiplied by 1G, nothing more
+
+			// So to find out the first force, take the lateral acceleration from the
+			// accelerometer and subtract the second force from it:
+			// 
+			// g = 9.80665 m/s2
+			// slipAndSkidForce = (accelerationX - sin(roll) * g) / g
+			// slipAndSkidForce = accelerationX / g - sin(roll)
+
+			const float gFt = 32.1740f;
+			var slipAndSkid = Math.Clamp((float) -simData.AccelerationBodyXFt / gFt, -1f, 1f) + MathF.Sin(AircraftPacket.rollRad);
+
+			//Debug.WriteLine($"[Slip & skid] -----------------------------------");
+			//Debug.WriteLine($"[Slip & skid] slipAndSkid: {slipAndSkid}");
+
+			AircraftPacket.slipAndSkid = (ushort) ((slipAndSkid + 1d) / 2d * 0xFFFF);
 
 			AircraftPacket.altitudeM = (float) PressureToAltitude(RemotePacket.altimeterPressurePa, simData.PressureHPa * 100d);
 			AircraftPacket.airSpeedMs = KnotsToMetersPerSecond((float) simData.AirSpeedKt);
@@ -116,6 +147,7 @@ public partial class MainWindow : Window {
 			//AircraftPacket.longitudeRad = 0;
 			//AircraftPacket.yawRad = 0;
 			//AircraftPacket.altitudeM = 5000;
+
 		}
 	}
 
@@ -123,15 +155,15 @@ public partial class MainWindow : Window {
 		var interval = 0.5f;
 
 		lock (PacketsSyncRoot) {
-			Debug.WriteLine($"[FPV] -------------------------------");
+			//Debug.WriteLine($"[FPV] -------------------------------");
 
-			Debug.WriteLine($"[FPV] Plane LLA: {RadiansToDegrees(AircraftPacket.latitudeRad)} x {RadiansToDegrees(AircraftPacket.longitudeRad)} x {AircraftPacket.altitudeM} m");
-			Debug.WriteLine($"[FPV] Plane PY: {RadiansToDegrees(AircraftPacket.pitchRad)} x {RadiansToDegrees(AircraftPacket.yawRad)}");
+			//Debug.WriteLine($"[FPV] Plane LLA: {RadiansToDegrees(AircraftPacket.latitudeRad)} x {RadiansToDegrees(AircraftPacket.longitudeRad)} x {AircraftPacket.altitudeM} m");
+			//Debug.WriteLine($"[FPV] Plane PY: {RadiansToDegrees(AircraftPacket.pitchRad)} x {RadiansToDegrees(AircraftPacket.yawRad)}");
 
 			// Cartesian
 			var cartesian = GeodeticToCartesian(AircraftPacket.latitudeRad, AircraftPacket.longitudeRad, AircraftPacket.altitudeM);
 
-			Debug.WriteLine($"[FPV] Cartesian: {cartesian.X} x {cartesian.Y} x {cartesian.Z}");
+			//Debug.WriteLine($"[FPV] Cartesian: {cartesian.X} x {cartesian.Y} x {cartesian.Z}");
 
 			Vector3 delta;
 
@@ -145,7 +177,7 @@ public partial class MainWindow : Window {
 				OldFPVCartesian = cartesian;
 			}
 
-			Debug.WriteLine($"[FPV] Delta: {delta.X} x {delta.Y} x {delta.Z}");
+			//Debug.WriteLine($"[FPV] Delta: {delta.X} x {delta.Y} x {delta.Z}");
 
 			var deltaLength = delta.Length();
 
@@ -154,7 +186,7 @@ public partial class MainWindow : Window {
 				// deltaLength m - interval s
 				// x m - 1 s
 				AircraftPacket.groundSpeedMs = deltaLength * 1f / interval;
-				Debug.WriteLine($"[FPV] G/S: {AircraftPacket.groundSpeedMs} m/s");
+				//Debug.WriteLine($"[FPV] G/S: {AircraftPacket.groundSpeedMs} m/s");
 
 				// FPV
 				var rotated = delta;
@@ -162,7 +194,7 @@ public partial class MainWindow : Window {
 				rotated = RotateAroundYAxis(rotated, -MathF.PI / 2f + AircraftPacket.latitudeRad);
 				rotated = RotateAroundZAxis(rotated, AircraftPacket.yawRad);
 
-				Debug.WriteLine($"[FPV] Rotated: {rotated.X} x {rotated.Y} x {rotated.Z}");
+				//Debug.WriteLine($"[FPV] Rotated: {rotated.X} x {rotated.Y} x {rotated.Z}");
 
 				AircraftPacket.flightPathPitch = deltaLength == 0 ? 0 : MathF.Asin(rotated.Z / deltaLength);
 				AircraftPacket.flightPathYaw = deltaLength == 0 ? 0 : -MathF.Atan(rotated.Y / rotated.X);
@@ -176,7 +208,7 @@ public partial class MainWindow : Window {
 				AircraftPacket.flightPathYaw = 0;
 			}
 
-			Debug.WriteLine($"[FPV] FPV PY: {RadiansToDegrees(AircraftPacket.flightPathPitch)} x {RadiansToDegrees(AircraftPacket.flightPathYaw)}");
+			//Debug.WriteLine($"[FPV] FPV PY: {RadiansToDegrees(AircraftPacket.flightPathPitch)} x {RadiansToDegrees(AircraftPacket.flightPathYaw)}");
 		}
 
 		//AircraftPacket.groundSpeedMs = 100;
@@ -226,6 +258,13 @@ public partial class MainWindow : Window {
 			(n + h) * latCos * MathF.Cos(longitude),
 			(n + h) * latCos * MathF.Sin(longitude),
 			((1 - e2) * n + h) * latSin
+		);
+	}
+
+	public static Vector2 Rotate(Vector2 vector, float angle) {
+		return new(
+			MathF.Cos(angle) * vector.X - MathF.Sin(angle) * vector.Y,
+			MathF.Sin(angle) * vector.X + MathF.Cos(angle) * vector.Y
 		);
 	}
 

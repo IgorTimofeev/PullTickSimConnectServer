@@ -45,7 +45,7 @@ namespace PullTickSimConnectServer
 		public float flightPathPitch;
 		public float flightPathYaw;
 
-		public short slipAndSkid;
+		public ushort slipAndSkid;
 
 		public ushort windDirectionDeg;
 		public float windSpeedMs;
