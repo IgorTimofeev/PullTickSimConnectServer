@@ -43,7 +43,7 @@ public class AircraftDataComputed {
 	public double WindSpeedMs = 0;
 
 	public double FlightPathPitchRad = 0;
-	public double FlightPathYaw = 0;
+	public double FlightPathYawRad = 0;
 
 	public double FlightDirectorPitchRad = 0;
 	public double FlightDirectorYawRad = 0;

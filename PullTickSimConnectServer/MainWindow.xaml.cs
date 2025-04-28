@@ -43,11 +43,6 @@ public partial class MainWindow : Window {
 				IsBackground = true
 			}.Start();
 
-			new Thread(RemoteDataToSimEvents) {
-				Name = "Sim events sendnging thread",
-				IsBackground = true
-			}.Start();
-
 			UpdateStatus();
 		};
 	}
@@ -84,7 +79,7 @@ public partial class MainWindow : Window {
 		// Aircraft data
 		lock (AircraftDataSyncRoot) {
 			AircraftData.LatitudeRad = simData.LatitudeRad;
-			AircraftData.LatitudeRad = simData.LatitudeRad;
+			AircraftData.LongitudeRad = simData.LongitudeRad;
 
 			AircraftData.PitchRad = -simData.PitchRad;
 			AircraftData.YawRad = simData.YawRad;
@@ -134,38 +129,30 @@ public partial class MainWindow : Window {
 	}
 
 	public void RemoteDataToSimEvents() {
-		while (true) {
-			if (Sim.IsConnected) {
-				lock (RemoteDataSyncRoot) {
-					lock (Sim.SyncRoot) {
-						// Throttle
-						if (RemoteData.AutopilotAutoThrottle) {
-							Sim.SendThrottle1Event(Autopilot.Throttle);
-							Sim.SendThrottle2Event(Autopilot.Throttle);
-						}
-						else {
-							Sim.SendThrottle1Event(RemoteData.Throttle);
-							Sim.SendThrottle2Event(RemoteData.Throttle);
-						}
-
-						Sim.SendAileronsEvent(1 - Autopilot.Ailerons);
-
-						// Elevator
-						Sim.SendElevatorEvent(RemoteData.AutopilotLevelChange ? Autopilot.Elevator : RemoteData.Elevator);
-
-						Sim.SendRudderEvent(1 - RemoteData.Rudder);
-
-						Sim.SendFlapsEvent(RemoteData.Flaps);
-						Sim.SendSpoilersEvent(RemoteData.Spoilers);
-
-						Sim.SendGearSetEvent(RemoteData.LandingGear);
-
-						Sim.SendAltimeterPressureEvent(RemoteData.AltimeterPressurePa);
-					}
-				}
+		lock (RemoteData) {
+			// Throttle
+			if (RemoteData.AutopilotAutoThrottle) {
+				Sim.SendThrottle1Event(Autopilot.Throttle);
+				Sim.SendThrottle2Event(Autopilot.Throttle);
+			}
+			else {
+				Sim.SendThrottle1Event(RemoteData.Throttle);
+				Sim.SendThrottle2Event(RemoteData.Throttle);
 			}
 
-			Thread.Sleep(TimeSpan.FromMilliseconds(1000 / 10));
+			Sim.SendAileronsEvent(1 - Autopilot.Ailerons);
+
+			// Elevator
+			Sim.SendElevatorEvent(RemoteData.AutopilotLevelChange ? Autopilot.Elevator : RemoteData.Elevator);
+
+			Sim.SendRudderEvent(1 - RemoteData.Rudder);
+
+			Sim.SendFlapsEvent(RemoteData.Flaps);
+			Sim.SendSpoilersEvent(RemoteData.Spoilers);
+
+			Sim.SendGearSetEvent(RemoteData.LandingGear);
+
+			Sim.SendAltimeterPressureEvent(RemoteData.AltimeterPressurePa);
 		}
 	}
 
@@ -204,7 +191,7 @@ public partial class MainWindow : Window {
 				AircraftPacket.Throttle = (byte) (AircraftData.Computed.Throttle * 0xFF);
 
 				AircraftPacket.LatitudeRad = (float) AircraftData.LatitudeRad;
-				AircraftPacket.LongitudeRad = (float) AircraftData.LatitudeRad;
+				AircraftPacket.LongitudeRad = (float) AircraftData.LongitudeRad;
 
 				AircraftPacket.PitchRad = (float) AircraftData.PitchRad;
 				AircraftPacket.YawRad = (float) AircraftData.YawRad;
@@ -224,7 +211,7 @@ public partial class MainWindow : Window {
 				AircraftPacket.FlightDirectorYaw = (float) AircraftData.Computed.FlightDirectorYawRad;
 
 				AircraftPacket.FlightPathPitch = (float) AircraftData.Computed.FlightPathPitchRad;
-				AircraftPacket.FlightPathYaw = (float) AircraftData.Computed.FlightPathYaw;
+				AircraftPacket.FlightPathYaw = (float) AircraftData.Computed.FlightPathYawRad;
 			}
 		}
 	}
@@ -245,7 +232,7 @@ public partial class MainWindow : Window {
 				//Debug.WriteLine($"[FPV] -------------------------------");
 
 				//Debug.WriteLine($"[FPV] Plane LLA: {RadiansToDegrees(AircraftData.LatitudeRad)} x {RadiansToDegrees(AircraftData.LongitudeRad)} x {AircraftData.Computed.AltitudeM} m");
-				//Debug.WriteLine($"[FPV] Plane PY: {RadiansToDegrees(AircraftData.PitchRad)} x {RadiansToDegrees(AircraftData.YawRad)}");
+				Debug.WriteLine($"[FPV] Plane PY: {RadiansToDegrees(AircraftData.PitchRad)} x {RadiansToDegrees(AircraftData.YawRad)}");
 
 				// Cartesian
 				var cartesian = GeodeticToCartesian(AircraftData.LatitudeRad, AircraftData.LongitudeRad, AircraftData.Computed.AltitudeM);
@@ -279,23 +266,23 @@ public partial class MainWindow : Window {
 					var rotated = delta;
 					rotated = RotateAroundZAxis(rotated, -AircraftData.LongitudeRad);
 					rotated = RotateAroundYAxis(rotated, -Math.PI / 2d + AircraftData.LatitudeRad);
-					rotated = RotateAroundZAxis(rotated, AircraftData.YawRad);
+					rotated = RotateAroundZAxis(rotated,AircraftData.YawRad);
 
 					//Debug.WriteLine($"[FPV] Rotated: {rotated.X} x {rotated.Y} x {rotated.Z}");
 
 					AircraftData.Computed.FlightPathPitchRad = deltaLength == 0 ? 0 : Math.Asin(rotated.Z / deltaLength);
-					AircraftData.Computed.FlightPathYaw = deltaLength == 0 ? 0 : -Math.Atan(rotated.Y / rotated.X);
+					AircraftData.Computed.FlightPathYawRad = deltaLength == 0 ? 0 : -Math.Atan(rotated.Y / rotated.X);
 
 					//AircraftData.flightPathPitch = 20f / 180f * Math.PI;
-					//AircraftData.flightPathYaw = 0;
+					//AircraftData.Computed.FlightPathYawRad = 0;
 				}
 				else {
 					AircraftData.Computed.GroundSpeedMs = 0;
 					AircraftData.Computed.FlightPathPitchRad = 0;
-					AircraftData.Computed.FlightPathYaw = 0;
+					AircraftData.Computed.FlightPathYawRad = 0;
 				}
 
-				//Debug.WriteLine($"[FPV] FPV PY: {RadiansToDegrees(AircraftData.flightPathPitch)} x {RadiansToDegrees(AircraftData.flightPathYaw)}");
+				Debug.WriteLine($"[FPV] FPV PY: {RadiansToDegrees(AircraftData.Computed.FlightPathPitchRad)} x {RadiansToDegrees(AircraftData.Computed.FlightPathYawRad)}");
 			}
 
 			Thread.Sleep(TimeSpan.FromSeconds(interval));

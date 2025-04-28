@@ -128,8 +128,6 @@ public class Sim {
 	static readonly TimeSpan ReconnectTimerPerdiod = TimeSpan.FromSeconds(5);
 	readonly Timer ReconnectTimer;
 
-	public object SyncRoot { get; init; } = new();
-
 	public void Start() {
 		if (IsStarted)
 			return;
@@ -177,23 +175,20 @@ public class Sim {
 
 			SimConnect.RegisterDataDefineStruct<SimData>(SimDefinition.SimData);
 
-			RequestData();
-
 			Thread = new(() => {
 				try {
 					Debug.WriteLine("[Sim] Receiving messages");
 
-
 					while (true) {
-						lock (SyncRoot) {
-							Debug.WriteLine("Sim recv enter");
-							
-							SimConnect!.ReceiveMessage();
+						//Debug.WriteLine("Sim recv enter");
 
-							Debug.WriteLine("Sim recv exit");
-						}
+						MainWindow.RemoteDataToSimEvents();
+						RequestData();
+						SimConnect!.ReceiveMessage();
 
-						Thread.Sleep(1000 / 10);
+						//Debug.WriteLine("Sim recv exit");
+
+						Thread.Sleep(1000 / 30);
 					}
 				}
 				catch (ThreadInterruptedException) {
@@ -280,7 +275,6 @@ public class Sim {
 	void OnRecvSimobjectDataByType(SimConnect sender, SIMCONNECT_RECV_SIMOBJECT_DATA_BYTYPE data) {
 		if (data.dwRequestID == 0) {
 			MainWindow.SimDataToAircraftData((SimData) data.dwData[0]);
-			RequestData();
 		}
 		else {
 			Debug.WriteLine($"Unknown request ID: {data.dwRequestID}");

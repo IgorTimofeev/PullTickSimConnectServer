@@ -29,13 +29,13 @@ public class Autopilot {
 	static readonly TimeSpan TickInterval = TimeSpan.FromMilliseconds(100);
 
 	double ThrottleDeltaMax = 0.2;
-	LowPassInterpolator ThrottleInterpolator = new(0.08);
+	LowPassInterpolator ThrottleInterpolator = new(0.02);
 	public double Throttle => ThrottleInterpolator.Value;
 
 	double PitchDeltaMaxM = 30;
 	double PitchMaxRad = MainWindow.DegreesToRadians(5);
 
-	LowPassInterpolator ElevatorInterpolator = new(0.08);
+	LowPassInterpolator ElevatorInterpolator = new(0.02);
 
 	double ElevatorFactorMax = 0.8d;
 	public double Elevator => ElevatorInterpolator.Value;
