@@ -9,6 +9,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
+using System.Windows.Media.Media3D;
 using System.Windows.Threading;
 
 namespace PullTickSimConnectServer;
@@ -25,19 +26,28 @@ public partial class MainWindow : Window {
 		TCP = new(this);
 		TCP.IsStartedChanged += UpdateStatus;
 
-		TCPPortTextBox.Text = App.Settings.port.ToString();
+		// Autopilot
+		Autopilot = new(this);
 
 		// Initialization
-		FlightPathVectorTimer = new(
-			 UpdateFlightPathVector,
-			 null,
-			 TimeSpan.FromSeconds(1),
-			 Timeout.InfiniteTimeSpan
-		);
+
+		// Controls
+		TCPPortTextBox.Text = App.Settings.port.ToString();
 
 		Loaded += (s, e) => {
 			Sim.Start();
 			TCP.Start(App.Settings.port);
+
+			new Thread(UpdateFlightPathVector) {
+				Name = "FPV / GS thread",
+				IsBackground = true
+			}.Start();
+
+			new Thread(RemoteDataToSimEvents) {
+				Name = "Sim events sendnging thread",
+				IsBackground = true
+			}.Start();
+
 			UpdateStatus();
 		};
 	}
@@ -45,61 +55,55 @@ public partial class MainWindow : Window {
 	public const float EarthEquatorialRadiusM = 6378137f;
 	public const float EarchPolarRadiusM = 6356752.3142f;
 
-	public object PacketsSyncRoot { get; init; } = new object();
+	public object RemoteDataSyncRoot { get; init; } = new object();
+	public object RemotePacketSyncRoot { get; init; } = new object();
+
+	public object AircraftDataSyncRoot { get; init; } = new object();
+	public object AircraftPacketSyncRoot { get; init; } = new object();
 
 	public RemotePacket RemotePacket = new() {
-		altimeterPressurePa = 101325
+		AltimeterPressurePa = 101325
 	};
 
 	public AircraftPacket AircraftPacket = new();
 
+	public AircraftData AircraftData { get; init; } = new();
+	public RemoteData RemoteData { get; init; } = new();
+
 	public static unsafe int RemotePacketSize => sizeof(RemotePacket);
 	public static unsafe int AircraftPacketSize => sizeof(AircraftPacket);
 
-	Timer FlightPathVectorTimer;
 
 	readonly Sim Sim;
 	readonly TCP TCP;
+	readonly Autopilot Autopilot;
 
-	Vector3 OldFPVCartesian = new(float.NaN, float.NaN, float.NaN);
+	Vector3D OldFPVCartesian = new(float.NaN, float.NaN, float.NaN);
 
-	public void HandleRemotePacket() {
-		if (!Sim.IsConnected)
-			return;
+	public void SimDataToAircraftData(SimData simData) {
+		// Aircraft data
+		lock (AircraftDataSyncRoot) {
+			AircraftData.LatitudeRad = simData.LatitudeRad;
+			AircraftData.LatitudeRad = simData.LatitudeRad;
 
-		Sim.SendThrottle1Event(RemotePacket.throttle1);
-		Sim.SendThrottle2Event(RemotePacket.throttle2);
+			AircraftData.PitchRad = -simData.PitchRad;
+			AircraftData.YawRad = simData.YawRad;
+			AircraftData.RollRad = -simData.RollRad;
 
-		Sim.SendAileronsEvent((ushort) (0xFFFF - RemotePacket.ailerons));
-		Sim.SendElevatorEvent(RemotePacket.elevator);
-		Sim.SendRudderEvent((ushort) (0xFFFF - RemotePacket.rudder));
+			AircraftData.AirSpeedMs = KnotsToMetersPerSecond(simData.AirSpeedKt);
 
-		Sim.SendFlapsEvent(RemotePacket.flaps);
-		Sim.SendSpoilersEvent(RemotePacket.spoilers);
+			// -------------------------------- Computed--------------------------------
 
-		Sim.SendGearSetEvent(RemotePacket.landingGear);
+			// Altitude
+			AircraftData.Computed.AltitudeM = PressureToAltitude(RemotePacket.AltimeterPressurePa, simData.PressureHPa * 100d);
 
-		Sim.SendAltimeterPressureEvent(RemotePacket.altimeterPressurePa);
+			// Wind
+			AircraftData.Computed.WindDirectionDeg = simData.WindDirectionDeg;
+			AircraftData.Computed.WindSpeedMs = KnotsToMetersPerSecond(simData.WindSpeedKt);
 
-		Sim.SendAPSpeedEvent((uint) MetersPerSecondToKnots(RemotePacket.autopilotAirspeedMs));
-		Sim.SendAutoThrottleEvent(RemotePacket.autopilotAutoThrottle);
 
-		Sim.SendAPHeadingEvent(RemotePacket.autopilotHeadingDeg);
-		Sim.SendAPHDGHoldEvent(RemotePacket.autopilotHeadingHold);
-
-		Sim.SendAPAltitudeEvent((uint) MetersToFeet(RemotePacket.autopilotAltitudeM));
-		Sim.SendAPLevelChangeEvent(RemotePacket.autopilotLevelChange);
-	}
-
-	public void HandleAircraftPacket(SimData simData) {
-		lock (PacketsSyncRoot) {
-			AircraftPacket.latitudeRad = (float) simData.LatitudeRad;
-			AircraftPacket.longitudeRad = (float) simData.LongitudeRad;
-
-			AircraftPacket.pitchRad = (float) -simData.PitchRad;
-			AircraftPacket.yawRad = (float) simData.YawRad;
-			AircraftPacket.rollRad = (float) -simData.RollRad;
-
+			// -------------------------------- Slip & skid--------------------------------
+			//
 			// Usually, the amount of slip is expressed as a G-load in [-1; 1] range.
 			// To determine it, we just need to take the lateral acceleration along
 			// aircraft abeam using using accelerometer. This acceleration is formed by
@@ -124,107 +128,188 @@ public partial class MainWindow : Window {
 			// slipAndSkidForce = (accelerationX - sin(roll) * g) / g
 			// slipAndSkidForce = accelerationX / g - sin(roll)
 
-			const float gFt = 32.1740f;
-			var slipAndSkid = Math.Clamp((float) -simData.AccelerationBodyXFt / gFt, -1f, 1f) + MathF.Sin(AircraftPacket.rollRad);
-
-			//Debug.WriteLine($"[Slip & skid] -----------------------------------");
-			//Debug.WriteLine($"[Slip & skid] slipAndSkid: {slipAndSkid}");
-
-			AircraftPacket.slipAndSkid = (ushort) ((slipAndSkid + 1d) / 2d * 0xFFFF);
-
-			AircraftPacket.altitudeM = (float) PressureToAltitude(RemotePacket.altimeterPressurePa, simData.PressureHPa * 100d);
-			AircraftPacket.airSpeedMs = KnotsToMetersPerSecond((float) simData.AirSpeedKt);
-
-			AircraftPacket.windDirectionDeg = (ushort) simData.WindDirectionDeg;
-			AircraftPacket.windSpeedMs = KnotsToMetersPerSecond((float) simData.WindSpeedKt);
-
-			// Test
-			//AircraftPacket.rollRad = 0;
-			//AircraftPacket.pitchRad = DegreesToRadians(25);
-
-
-			//AircraftPacket.latitudeRad -= (59f / 180f * MathF.PI);
-			//AircraftPacket.longitudeRad = 0;
-			//AircraftPacket.yawRad = 0;
-			//AircraftPacket.altitudeM = 5000;
-
+			const double GFtS2 = 32.1740d;
+			AircraftData.Computed.SlipAndSkidG = -simData.AccelerationBodyXFt * 2f / GFtS2 + Math.Sin(AircraftData.RollRad);
 		}
 	}
 
-	public void UpdateFlightPathVector(object? _) {
-		var interval = 0.5f;
+	public void RemoteDataToSimEvents() {
+		while (true) {
+			if (Sim.IsConnected) {
+				lock (RemoteDataSyncRoot) {
+					lock (Sim.SyncRoot) {
+						// Throttle
+						if (RemoteData.AutopilotAutoThrottle) {
+							Sim.SendThrottle1Event(Autopilot.Throttle);
+							Sim.SendThrottle2Event(Autopilot.Throttle);
+						}
+						else {
+							Sim.SendThrottle1Event(RemoteData.Throttle);
+							Sim.SendThrottle2Event(RemoteData.Throttle);
+						}
 
-		lock (PacketsSyncRoot) {
-			//Debug.WriteLine($"[FPV] -------------------------------");
+						Sim.SendAileronsEvent(1 - Autopilot.Ailerons);
 
-			//Debug.WriteLine($"[FPV] Plane LLA: {RadiansToDegrees(AircraftPacket.latitudeRad)} x {RadiansToDegrees(AircraftPacket.longitudeRad)} x {AircraftPacket.altitudeM} m");
-			//Debug.WriteLine($"[FPV] Plane PY: {RadiansToDegrees(AircraftPacket.pitchRad)} x {RadiansToDegrees(AircraftPacket.yawRad)}");
+						// Elevator
+						Sim.SendElevatorEvent(RemoteData.AutopilotLevelChange ? Autopilot.Elevator : RemoteData.Elevator);
 
-			// Cartesian
-			var cartesian = GeodeticToCartesian(AircraftPacket.latitudeRad, AircraftPacket.longitudeRad, AircraftPacket.altitudeM);
+						Sim.SendRudderEvent(1 - RemoteData.Rudder);
 
-			//Debug.WriteLine($"[FPV] Cartesian: {cartesian.X} x {cartesian.Y} x {cartesian.Z}");
+						Sim.SendFlapsEvent(RemoteData.Flaps);
+						Sim.SendSpoilersEvent(RemoteData.Spoilers);
 
-			Vector3 delta;
+						Sim.SendGearSetEvent(RemoteData.LandingGear);
 
-			// First call
-			if (float.IsNaN(OldFPVCartesian.X)) {
-				delta = new();
-				OldFPVCartesian = cartesian;
-			}
-			else {
-				delta = cartesian - OldFPVCartesian;
-				OldFPVCartesian = cartesian;
-			}
-
-			//Debug.WriteLine($"[FPV] Delta: {delta.X} x {delta.Y} x {delta.Z}");
-
-			var deltaLength = delta.Length();
-
-			if (deltaLength > 0) {
-				// Ground speed
-				// deltaLength m - interval s
-				// x m - 1 s
-				AircraftPacket.groundSpeedMs = deltaLength * 1f / interval;
-				//Debug.WriteLine($"[FPV] G/S: {AircraftPacket.groundSpeedMs} m/s");
-
-				// FPV
-				var rotated = delta;
-				rotated = RotateAroundZAxis(rotated, -AircraftPacket.longitudeRad);
-				rotated = RotateAroundYAxis(rotated, -MathF.PI / 2f + AircraftPacket.latitudeRad);
-				rotated = RotateAroundZAxis(rotated, AircraftPacket.yawRad);
-
-				//Debug.WriteLine($"[FPV] Rotated: {rotated.X} x {rotated.Y} x {rotated.Z}");
-
-				AircraftPacket.flightPathPitch = deltaLength == 0 ? 0 : MathF.Asin(rotated.Z / deltaLength);
-				AircraftPacket.flightPathYaw = deltaLength == 0 ? 0 : -MathF.Atan(rotated.Y / rotated.X);
-
-				//AircraftPacket.flightPathPitch = 20f / 180f * MathF.PI;
-				//AircraftPacket.flightPathYaw = 0;
-			}
-			else {
-				AircraftPacket.groundSpeedMs = 0;
-				AircraftPacket.flightPathPitch = 0;
-				AircraftPacket.flightPathYaw = 0;
+						Sim.SendAltimeterPressureEvent(RemoteData.AltimeterPressurePa);
+					}
+				}
 			}
 
-			//Debug.WriteLine($"[FPV] FPV PY: {RadiansToDegrees(AircraftPacket.flightPathPitch)} x {RadiansToDegrees(AircraftPacket.flightPathYaw)}");
+			Thread.Sleep(TimeSpan.FromMilliseconds(1000 / 10));
 		}
-
-		//AircraftPacket.groundSpeedMs = 100;
-		//AircraftPacket.flightPathPitch = AircraftPacket.pitchRad;
-
-		FlightPathVectorTimer.Change(TimeSpan.FromSeconds(interval), Timeout.InfiniteTimeSpan);
 	}
 
-	public static float RadiansToDegrees(float radians) => radians / MathF.PI * 180f;
-	public static float DegreesToRadians(float degrees) => degrees / 180f * MathF.PI;
+	public void RemotePacketToRemoteData() {
+		lock (RemoteDataSyncRoot) {
+			lock (RemotePacketSyncRoot) {
+				RemoteData.Throttle = RemotePacket.Throttle / 255d;
 
-	public static float FeetToMeters(float feet) => feet * 0.3048f;
-	public static float MetersToFeet(float meters) => meters / 0.3048f;
+				RemoteData.Ailerons = RemotePacket.Ailerons / 255d;
+				RemoteData.Elevator = RemotePacket.Elevator / 255d;
+				RemoteData.Rudder = RemotePacket.Rudder / 255d;
 
-	public static float KnotsToMetersPerSecond(float knots) => knots * 0.5144444444f;
-	public static float MetersPerSecondToKnots(float metersPerSecond) => metersPerSecond / 0.5144444444f;
+				RemoteData.Flaps = RemotePacket.Flaps / 255d;
+				RemoteData.Spoilers = RemotePacket.Spoilers / 255d;
+
+				RemoteData.AltimeterPressurePa = RemotePacket.AltimeterPressurePa;
+
+				RemoteData.AutopilotAirSpeedMs = RemotePacket.AutopilotAirspeedMs;
+				RemoteData.AutopilotAutoThrottle = RemotePacket.AutopilotAutoThrottle;
+
+				RemoteData.AutopilotHeadingRad = DegreesToRadians(RemotePacket.AutopilotHeadingDeg);
+				RemoteData.AutopilotHeadingHold = RemotePacket.AutopilotHeadingHold;
+
+				RemoteData.AutopilotAltitudeM = RemotePacket.AutopilotAltitudeM;
+				RemoteData.AutopilotLevelChange = RemotePacket.AutopilotLevelChange;
+
+				RemoteData.LandingGear = RemotePacket.LandingGear;
+				RemoteData.StrobeLights = RemotePacket.StrobeLights;
+			}
+		}
+	}
+
+	public void AircraftDataToAircraftPacket() {
+		lock (AircraftDataSyncRoot) {
+			lock (AircraftPacketSyncRoot) {
+				AircraftPacket.Throttle = (byte) (AircraftData.Computed.Throttle * 0xFF);
+
+				AircraftPacket.LatitudeRad = (float) AircraftData.LatitudeRad;
+				AircraftPacket.LongitudeRad = (float) AircraftData.LatitudeRad;
+
+				AircraftPacket.PitchRad = (float) AircraftData.PitchRad;
+				AircraftPacket.YawRad = (float) AircraftData.YawRad;
+				AircraftPacket.RollRad = (float) AircraftData.RollRad;
+
+				AircraftPacket.SlipAndSkid = (ushort) ((Math.Clamp(AircraftData.Computed.SlipAndSkidG, -1, 1) + 1d) / 2d * 0xFFFF);
+
+				AircraftPacket.AltitudeM = (float) AircraftData.Computed.AltitudeM;
+				AircraftPacket.AirSpeedMs = (float) AircraftData.AirSpeedMs;
+
+				AircraftPacket.SindDirectionDeg = (ushort) AircraftData.Computed.WindDirectionDeg;
+				AircraftPacket.WindSpeedMs = (float) AircraftData.Computed.WindSpeedMs;
+
+				AircraftPacket.GroundSpeedMs = (float) AircraftData.Computed.GroundSpeedMs;
+
+				AircraftPacket.FlightDirectorPitch = (float) AircraftData.Computed.FlightDirectorPitchRad;
+				AircraftPacket.FlightDirectorYaw = (float) AircraftData.Computed.FlightDirectorYawRad;
+
+				AircraftPacket.FlightPathPitch = (float) AircraftData.Computed.FlightPathPitchRad;
+				AircraftPacket.FlightPathYaw = (float) AircraftData.Computed.FlightPathYaw;
+			}
+		}
+	}
+
+	public void HandleReceivedRemotePacket() {
+		RemotePacketToRemoteData();
+	}
+
+	public void PrepareAircraftPacketToSend() {
+		AircraftDataToAircraftPacket();
+	}
+
+	public void UpdateFlightPathVector() {
+		while (true) {
+			var interval = 0.5d;
+
+			lock (AircraftDataSyncRoot) {
+				//Debug.WriteLine($"[FPV] -------------------------------");
+
+				//Debug.WriteLine($"[FPV] Plane LLA: {RadiansToDegrees(AircraftData.LatitudeRad)} x {RadiansToDegrees(AircraftData.LongitudeRad)} x {AircraftData.Computed.AltitudeM} m");
+				//Debug.WriteLine($"[FPV] Plane PY: {RadiansToDegrees(AircraftData.PitchRad)} x {RadiansToDegrees(AircraftData.YawRad)}");
+
+				// Cartesian
+				var cartesian = GeodeticToCartesian(AircraftData.LatitudeRad, AircraftData.LongitudeRad, AircraftData.Computed.AltitudeM);
+
+				//Debug.WriteLine($"[FPV] Cartesian: {cartesian.X} x {cartesian.Y} x {cartesian.Z}");
+
+				Vector3D delta;
+
+				// First call
+				if (double.IsNaN(OldFPVCartesian.X)) {
+					delta = new();
+					OldFPVCartesian = cartesian;
+				}
+				else {
+					delta = cartesian - OldFPVCartesian;
+					OldFPVCartesian = cartesian;
+				}
+
+				//Debug.WriteLine($"[FPV] Delta: {delta.X} x {delta.Y} x {delta.Z}");
+
+				var deltaLength = delta.Length;
+
+				if (deltaLength > 0) {
+					// Ground speed
+					// deltaLength m - interval s
+					// x m - 1 s
+					AircraftData.Computed.GroundSpeedMs = deltaLength * 1d / interval;
+					//Debug.WriteLine($"[FPV] G/S: {AircraftData.groundSpeedMs} m/s");
+
+					// FPV
+					var rotated = delta;
+					rotated = RotateAroundZAxis(rotated, -AircraftData.LongitudeRad);
+					rotated = RotateAroundYAxis(rotated, -Math.PI / 2d + AircraftData.LatitudeRad);
+					rotated = RotateAroundZAxis(rotated, AircraftData.YawRad);
+
+					//Debug.WriteLine($"[FPV] Rotated: {rotated.X} x {rotated.Y} x {rotated.Z}");
+
+					AircraftData.Computed.FlightPathPitchRad = deltaLength == 0 ? 0 : Math.Asin(rotated.Z / deltaLength);
+					AircraftData.Computed.FlightPathYaw = deltaLength == 0 ? 0 : -Math.Atan(rotated.Y / rotated.X);
+
+					//AircraftData.flightPathPitch = 20f / 180f * Math.PI;
+					//AircraftData.flightPathYaw = 0;
+				}
+				else {
+					AircraftData.Computed.GroundSpeedMs = 0;
+					AircraftData.Computed.FlightPathPitchRad = 0;
+					AircraftData.Computed.FlightPathYaw = 0;
+				}
+
+				//Debug.WriteLine($"[FPV] FPV PY: {RadiansToDegrees(AircraftData.flightPathPitch)} x {RadiansToDegrees(AircraftData.flightPathYaw)}");
+			}
+
+			Thread.Sleep(TimeSpan.FromSeconds(interval));
+		}
+	}
+
+	public static double RadiansToDegrees(double radians) => radians / Math.PI * 180d;
+	public static double DegreesToRadians(double degrees) => degrees / 180d * Math.PI;
+
+	public static double FeetToMeters(double feet) => feet * 0.3048f;
+	public static double MetersToFeet(double meters) => meters / 0.3048f;
+
+	public static double KnotsToMetersPerSecond(double knots) => knots * 0.5144444444f;
+	public static double MetersPerSecondToKnots(double metersPerSecond) => metersPerSecond / 0.5144444444f;
 
 	public static double PressureToAltitude(double referencePressurePa, double pressurePa) {
 		const double T0 = 288.15;
@@ -235,42 +320,42 @@ public partial class MainWindow : Window {
 		return T0 / L * (1 - Math.Pow(pressurePa / referencePressurePa, RS * L / g));
 	}
 
-	public static Vector3 GeodeticToCartesian(float latitude, float longitude, float altitude) {
+	public static Vector3D GeodeticToCartesian(double latitude, double longitude, double altitude) {
 		var radius = EarthEquatorialRadiusM + altitude;
-		var latCos = MathF.Cos(latitude);
+		var latCos = Math.Cos(latitude);
 
 		return new(
-			radius * latCos * MathF.Cos(longitude),
-			radius * latCos * MathF.Sin(longitude),
-			radius * MathF.Sin(latitude)
+			radius * latCos * Math.Cos(longitude),
+			radius * latCos * Math.Sin(longitude),
+			radius * Math.Sin(latitude)
 		);
 	}
 
-	public static Vector3 GeodeticToECEFCartesian(float latitude, float longitude, float altitude) {
-		var latCos = MathF.Cos(latitude);
-		var latSin = MathF.Sin(latitude);
+	public static Vector3D GeodeticToECEFCartesian(double latitude, double longitude, double altitude) {
+		var latCos = Math.Cos(latitude);
+		var latSin = Math.Sin(latitude);
 
 		var e2 = 1 - (EarchPolarRadiusM * EarchPolarRadiusM) / (EarthEquatorialRadiusM * EarthEquatorialRadiusM);
-		var n = EarthEquatorialRadiusM / MathF.Sqrt(1 - e2 * latSin * latSin);
+		var n = EarthEquatorialRadiusM / Math.Sqrt(1 - e2 * latSin * latSin);
 		var h = EarthEquatorialRadiusM + altitude;
 
 		return new(
-			(n + h) * latCos * MathF.Cos(longitude),
-			(n + h) * latCos * MathF.Sin(longitude),
+			(n + h) * latCos * Math.Cos(longitude),
+			(n + h) * latCos * Math.Sin(longitude),
 			((1 - e2) * n + h) * latSin
 		);
 	}
 
-	public static Vector2 Rotate(Vector2 vector, float angle) {
+	public static Point Rotate(Point vector, float angle) {
 		return new(
-			MathF.Cos(angle) * vector.X - MathF.Sin(angle) * vector.Y,
-			MathF.Sin(angle) * vector.X + MathF.Cos(angle) * vector.Y
+			Math.Cos(angle) * vector.X - Math.Sin(angle) * vector.Y,
+			Math.Sin(angle) * vector.X + Math.Cos(angle) * vector.Y
 		);
 	}
 
-	Vector3 RotateAroundXAxis(Vector3 vector, float angle) {
-		var angleSin = MathF.Sin(angle);
-		var angleCos = MathF.Cos(angle);
+	Vector3D RotateAroundXAxis(Vector3D vector, double angle) {
+		var angleSin = Math.Sin(angle);
+		var angleCos = Math.Cos(angle);
 
 		return new(
 			vector.X,
@@ -279,9 +364,9 @@ public partial class MainWindow : Window {
 		);
 	}
 
-	Vector3 RotateAroundYAxis(Vector3 vector, float angle) {
-		var angleSin = MathF.Sin(angle);
-		var angleCos = MathF.Cos(angle);
+	Vector3D RotateAroundYAxis(Vector3D vector, double angle) {
+		var angleSin = Math.Sin(angle);
+		var angleCos = Math.Cos(angle);
 
 		return new(
 			angleCos * vector.X + angleSin * vector.Z,
@@ -290,9 +375,9 @@ public partial class MainWindow : Window {
 		);
 	}
 
-	Vector3 RotateAroundZAxis(Vector3 vector, float angle) {
-		var angleSin = MathF.Sin(angle);
-		var angleCos = MathF.Cos(angle);
+	Vector3D RotateAroundZAxis(Vector3D vector, double angle) {
+		var angleSin = Math.Sin(angle);
+		var angleCos = Math.Cos(angle);
 
 		return new(
 			angleCos * vector.X - angleSin * vector.Y,

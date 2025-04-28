@@ -85,16 +85,18 @@ namespace PullTickSimConnectServer {
 					do {
 						await stream.ReadExactlyAsync(buffer, 0, MainWindow.RemotePacketSize, StopCTS!.Token);
 
-						lock (MainWindow.PacketsSyncRoot) {
+						lock (MainWindow.RemotePacketSyncRoot) {
 							MainWindow.RemotePacket = BytesToStruct<RemotePacket>(buffer);
 						}
 
-						MainWindow.HandleRemotePacket();
+						MainWindow.HandleReceivedRemotePacket();
 					}
 					while (client.Available > 0);
 
 					// Writing
-					lock (MainWindow.PacketsSyncRoot) {
+					MainWindow.PrepareAircraftPacketToSend();
+
+					lock (MainWindow.AircraftPacketSyncRoot) {
 						StructToBytes(MainWindow.AircraftPacket, buffer);
 					}
 

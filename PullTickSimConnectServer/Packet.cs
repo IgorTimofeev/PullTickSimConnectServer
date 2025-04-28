@@ -4,50 +4,58 @@ namespace PullTickSimConnectServer
 {
 	[StructLayout(LayoutKind.Sequential, Pack = 1)]
 	public struct RemotePacket {
-		public ushort throttle1;
-		public ushort throttle2;
+		public RemotePacket() {
 
-		public ushort ailerons;
-		public ushort elevator;
-		public ushort rudder;
+		}
 
-		public ushort flaps;
-		public ushort spoilers;
+		public byte Throttle = 0;
 
-		public uint altimeterPressurePa;
+		public byte Ailerons = 0;
+		public byte Elevator = 0;
+		public byte Rudder = 0;
 
-		public ushort autopilotAirspeedMs;
-		public bool autopilotAutoThrottle;
+		public byte Flaps = 0;
+		public byte Spoilers = 0;
 
-		public ushort autopilotHeadingDeg;
-		public bool autopilotHeadingHold;
+		public uint AltimeterPressurePa = 101325;
 
-		public ushort autopilotAltitudeM;
-		public bool autopilotLevelChange;
+		public ushort AutopilotAirspeedMs = 0;
+		public bool AutopilotAutoThrottle = false;
 
-		public bool landingGear;
-		public bool strobeLights;
+		public ushort AutopilotHeadingDeg = 0;
+		public bool AutopilotHeadingHold = false;
+
+		public ushort AutopilotAltitudeM = 0;
+		public bool AutopilotLevelChange = false;
+
+		public bool LandingGear = false;
+		public bool StrobeLights = false;
 	}
 
 	[StructLayout(LayoutKind.Sequential, Pack = 1)]
 	public struct AircraftPacket {
-		public float latitudeRad;
-		public float longitudeRad;
-		public float altitudeM;
+		public byte Throttle;
 
-		public float pitchRad;
-		public float yawRad;
-		public float rollRad;
+		public float LatitudeRad;
+		public float LongitudeRad;
+		public float AltitudeM;
 
-		public float airSpeedMs;
-		public float groundSpeedMs;
+		public float PitchRad;
+		public float YawRad;
+		public float RollRad;
 
-		public float flightPathPitch;
-		public float flightPathYaw;
+		public float AirSpeedMs;
+		public float GroundSpeedMs;
 
-		public ushort slipAndSkid;
+		public float FlightPathPitch;
+		public float FlightPathYaw;
 
-		public ushort windDirectionDeg;
-		public float windSpeedMs;
+		public float FlightDirectorPitch;
+		public float FlightDirectorYaw;
+
+		public ushort SlipAndSkid;
+
+		public ushort SindDirectionDeg;
+		public float WindSpeedMs;
 	}
 }

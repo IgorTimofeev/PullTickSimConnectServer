@@ -26,7 +26,10 @@ public struct SimData {
 	public double WindSpeedKt;
 
 	public double AccelerationBodyXFt;
+}
 
+public enum SimcLIENT {
+	Client1
 }
 
 public enum SimDataRequest {
@@ -125,7 +128,7 @@ public class Sim {
 	static readonly TimeSpan ReconnectTimerPerdiod = TimeSpan.FromSeconds(5);
 	readonly Timer ReconnectTimer;
 
-	object SyncRoot { get; init; } = new();
+	public object SyncRoot { get; init; } = new();
 
 	public void Start() {
 		if (IsStarted)
@@ -151,7 +154,7 @@ public class Sim {
 			SimConnect!.OnRecvOpen += new(OnRecvOpen);
 			SimConnect.OnRecvQuit += new(OnRecvQuit);
 			SimConnect.OnRecvException += new(OnRecvException);
-			SimConnect.OnRecvSimobjectDataBytype += new(OnRecvSimobjectDataBytype);
+			SimConnect.OnRecvSimobjectDataBytype += new(OnRecvSimobjectDataByType);
 
 			// Throttle 1-2
 			SimConnect.AddToDataDefinition(SimDefinition.SimData, "PLANE LATITUDE", "radians", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
@@ -174,23 +177,23 @@ public class Sim {
 
 			SimConnect.RegisterDataDefineStruct<SimData>(SimDefinition.SimData);
 
+			RequestData();
+
 			Thread = new(() => {
 				try {
 					Debug.WriteLine("[Sim] Receiving messages");
 
+
 					while (true) {
 						lock (SyncRoot) {
+							Debug.WriteLine("Sim recv enter");
+							
 							SimConnect!.ReceiveMessage();
 
-							SimConnect.RequestDataOnSimObjectType(
-								SimDataRequest.Request1,
-								SimDefinition.SimData,
-								0,
-								SIMCONNECT_SIMOBJECT_TYPE.USER
-							);
+							Debug.WriteLine("Sim recv exit");
 						}
 
-						Thread.Sleep(1000 / 30);
+						Thread.Sleep(1000 / 10);
 					}
 				}
 				catch (ThreadInterruptedException) {
@@ -202,6 +205,7 @@ public class Sim {
 					ScheduleRestart();
 				}
 			}) {
+				Name = "Sim receiving thread",
 				IsBackground = true
 			};
 
@@ -212,6 +216,15 @@ public class Sim {
 
 			ScheduleRestart();
 		}
+	}
+
+	void RequestData() {
+		SimConnect!.RequestDataOnSimObjectType(
+			SimDataRequest.Request1,
+			SimDefinition.SimData,
+			0,
+			SIMCONNECT_SIMOBJECT_TYPE.USER
+		);
 	}
 
 	void PrepareForStop() {
@@ -264,9 +277,10 @@ public class Sim {
 		Stop();
 	}
 
-	void OnRecvSimobjectDataBytype(SimConnect sender, SIMCONNECT_RECV_SIMOBJECT_DATA_BYTYPE data) {
+	void OnRecvSimobjectDataByType(SimConnect sender, SIMCONNECT_RECV_SIMOBJECT_DATA_BYTYPE data) {
 		if (data.dwRequestID == 0) {
-			MainWindow.HandleAircraftPacket((SimData) data.dwData[0]);
+			MainWindow.SimDataToAircraftData((SimData) data.dwData[0]);
+			RequestData();
 		}
 		else {
 			Debug.WriteLine($"Unknown request ID: {data.dwRequestID}");
@@ -276,10 +290,8 @@ public class Sim {
 	// ----------------------------------------- Generic events -----------------------------------------
 
 	public void TransmitEvent(Enum eventID, uint value) {
-		lock (SyncRoot) {
-			SimConnect?.MapClientEventToSimEvent(eventID, eventID.ToString());
-			SimConnect?.TransmitClientEvent(0U, eventID, value, SimNotificationGroup.Group0, SIMCONNECT_EVENT_FLAG.GROUPID_IS_PRIORITY);
-		}
+		SimConnect?.MapClientEventToSimEvent(eventID, eventID.ToString());
+		SimConnect?.TransmitClientEvent(0U, eventID, value, SimNotificationGroup.Group0, SIMCONNECT_EVENT_FLAG.GROUPID_IS_PRIORITY);
 	}
 
 	public void TransmitEvent(Enum eventID) {
@@ -287,30 +299,24 @@ public class Sim {
 	}
 
 	public void TransmitEventEX1(Enum eventID, uint value) {
-		lock (SyncRoot) {
-			SimConnect?.MapClientEventToSimEvent(eventID, eventID.ToString());
-			SimConnect?.TransmitClientEvent_EX1(0U, eventID, SimNotificationGroup.Group0, SIMCONNECT_EVENT_FLAG.GROUPID_IS_PRIORITY, value, 0, 0, 0, 0);
-		}
+		SimConnect?.MapClientEventToSimEvent(eventID, eventID.ToString());
+		SimConnect?.TransmitClientEvent_EX1(0U, eventID, SimNotificationGroup.Group0, SIMCONNECT_EVENT_FLAG.GROUPID_IS_PRIORITY, value, 0, 0, 0, 0);
 	}
 
-	public void SendMinMax16383Event(Enum eventID, float percent) {
-		const float min = -16383f;
-		const float max = 16383f;
+	public void SendMinMax16383Event(Enum eventID, double factor) {
+		const double min = -16383d;
+		const double max = 16383d;
 
-		percent = min + percent * (max - min);
+		factor = min + factor * (max - min);
 
-		var bytes = BitConverter.GetBytes(Convert.ToInt32(percent));
+		var bytes = BitConverter.GetBytes(Convert.ToInt32(factor));
 		var pizda = BitConverter.ToUInt32(bytes);
 
 		TransmitEvent(eventID, pizda);
 	}
 
-	public void SendMinMax16383Event(Enum eventID, ushort value) {
-		SendMinMax16383Event(eventID, (float) (value / 65535f));
-	}
-
-	public void SendMax16383Event(Enum eventID, ushort value) {
-		TransmitEvent(eventID, (uint) Math.Round(value / 65535f * 16384f));
+	public void SendMax16383Event(Enum eventID, double value) {
+		TransmitEvent(eventID, (uint) Math.Round(value * 16384d));
 	}
 
 	public void SendEvent(Enum eventID, bool value) {
@@ -319,7 +325,7 @@ public class Sim {
 
 	// ----------------------------------------- Exact events -----------------------------------------
 
-	public void SendAileronsEvent(ushort value) {
+	public void SendAileronsEvent(double value) {
 		SendMinMax16383Event(SimEvent.AILERON_SET, value);
 	}
 
@@ -327,27 +333,27 @@ public class Sim {
 		SendEvent(SimEvent.GEAR_SET, value);
 	}
 
-	public void SendElevatorEvent(ushort value) {
+	public void SendElevatorEvent(double value) {
 		SendMinMax16383Event(SimEvent.ELEVATOR_SET, value);
 	}
 
-	public void SendRudderEvent(ushort value) {
+	public void SendRudderEvent(double value) {
 		SendMinMax16383Event(SimEvent.RUDDER_SET, value);
 	}
 
-	public void SendThrottle1Event(ushort value) {
+	public void SendThrottle1Event(double value) {
 		SendMax16383Event(SimEvent.THROTTLE1_SET, value);
 	}
 
-	public void SendThrottle2Event(ushort value) {
+	public void SendThrottle2Event(double value) {
 		SendMax16383Event(SimEvent.THROTTLE2_SET, value);
 	}
 
-	public void SendFlapsEvent(ushort value) {
+	public void SendFlapsEvent(double value) {
 		SendMax16383Event(SimEvent.FLAPS_SET, value);
 	}
 
-	public void SendSpoilersEvent(ushort value) {
+	public void SendSpoilersEvent(double value) {
 		SendMax16383Event(SimEvent.SPOILERS_SET, value);
 	}
 
@@ -355,7 +361,7 @@ public class Sim {
 		TransmitEventEX1(SimEvent.AP_SPD_VAR_SET, value);
 	}
 
-	public void SendAPHeadingEvent(ushort degrees) {
+	public void SendAPHeadingEvent(uint degrees) {
 		TransmitEvent(SimEvent.HEADING_BUG_SET, degrees);
 	}
 
@@ -371,8 +377,8 @@ public class Sim {
 		TransmitEvent(value ? SimEvent.AP_HDG_HOLD_ON : SimEvent.AP_HDG_HOLD_OFF);
 	}
 
-	public void SendAltimeterPressureEvent(uint pascals) {
-		TransmitEventEX1(SimEvent.KOHLSMAN_SET, (uint) (pascals / 100f * 16f));
+	public void SendAltimeterPressureEvent(double pascals) {
+		TransmitEventEX1(SimEvent.KOHLSMAN_SET, (uint) (pascals / 100d * 16d));
 	}
 
 	public void SendAutoThrottleEvent(bool state) {
