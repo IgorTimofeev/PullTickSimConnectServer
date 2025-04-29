@@ -8,20 +8,12 @@ using System.Threading.Tasks;
 
 namespace PullTickSimConnectServer;
 
-public class PIDController {
-	public PIDController(double p, double i, double d, double min, double max) {
-		P = p;
-		I = i;
-		D = d;
-		Min = min;
-		Max = max;
-	}
-
-	public double P { get; set; }
-	public double I { get; set; }
-	public double D { get; set; }
-	public double Min { get; set; }
-	public double Max { get; set; }
+public class PIDController(double p, double i, double d, double min, double max) {
+	public double P { get; set; } = p;
+	public double I { get; set; } = i;
+	public double D { get; set; } = d;
+	public double Min { get; set; } = min;
+	public double Max { get; set; } = max;
 
 	double Integral = 0;
 	double PreviousError = 0;
@@ -29,11 +21,11 @@ public class PIDController {
 	public double Update(double input, double setpoint, double deltaTimeSeconds) {
 		var error = setpoint - input;
 
-		Integral = Math.Clamp(Integral + error * deltaTimeSeconds * I, Min, Max);
+		Integral = Math.Clamp(Integral + error * deltaTimeSeconds, Min, Max);
 
-		var derivative = (error - PreviousError) / deltaTimeSeconds * D;
+		var derivative = (error - PreviousError) / deltaTimeSeconds;
 		PreviousError = error;
 
-		return Math.Clamp(error * P + Integral + derivative, Min, Max);
+		return Math.Clamp(error * P + Integral * I + derivative * D, Min, Max);
 	}
 }
