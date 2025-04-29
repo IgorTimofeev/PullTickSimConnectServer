@@ -69,12 +69,12 @@ public class Autopilot {
 				var altitudeTrendDeltaM = double.IsNaN(AltitudeTrendPreviousM) ? 0 : MainWindow.AircraftData.Computed.AltitudeM - AltitudeTrendPreviousM;
 				AltitudeTrendPreviousM = MainWindow.AircraftData.Computed.AltitudeM;
 
-				var altitudeTrendIntervalS = 3d;
+				var altitudeTrendIntervalS = 2d;
 				var altitudeTrendPredictedDeltaM = altitudeTrendIntervalS * altitudeTrendDeltaM / TickInterval.TotalSeconds;
 				var altitudeTrendPredictedM = MainWindow.AircraftData.Computed.AltitudeM + altitudeTrendPredictedDeltaM;
 
 				var altitudedDeltaM = MainWindow.RemoteData.AutopilotAltitudeM - altitudeTrendPredictedM;
-				var altitudedDeltaSmoothForMaxPitchM = MainWindow.FeetToMeters(100);
+				var altitudedDeltaSmoothForMaxPitchM = MainWindow.FeetToMeters(10);
 
 				// Pitch
 				var pitchTrendDeltaRad = double.IsNaN(PitchTrendPreviousRad) ? 0 : MainWindow.AircraftData.PitchRad - PitchTrendPreviousRad;
@@ -91,10 +91,10 @@ public class Autopilot {
 				MainWindow.AircraftData.Computed.FlightDirectorPitchRad = pitchAngleRad;
 
 				var pitchAngleDeltaRad = pitchAngleRad - pitchTrendPredictedRad;
-				var pitchAngleSmoothingRad = MainWindow.DegreesToRadians(15);
+				var pitchAngleSmoothingRad = MainWindow.DegreesToRadians(20);
 
-				var elevatorLPFFactorMin = 0.0008;
-				var elevatorLPFFactorMax = 0.008;
+				var elevatorLPFFactorMin = 0.0001;
+				var elevatorLPFFactorMax = 0.01;
 				var elevatorLPFFactorLERPFactor = Math.Min(Math.Abs(pitchAngleDeltaRad) / pitchAngleSmoothingRad, 1);
 
 				Elevator = LowPassFilter.Apply(
