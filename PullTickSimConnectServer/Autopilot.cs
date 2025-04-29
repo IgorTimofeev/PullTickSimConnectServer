@@ -42,22 +42,32 @@ public class Autopilot {
 	//double YawInterpolationFactor = 0.5;
 	public double Ailerons { get; private set; } = 0;
 
+	double SpeedTrendPreviousValue = -1;
+
 	Timer Timer;
 
 	void Tick(object? _) {
 		lock (MainWindow.AircraftDataSyncRoot) {
 			lock (MainWindow.RemoteDataSyncRoot) {
 				// Throttle
-				var speedDelta = MainWindow.RemoteData.AutopilotAirSpeedMs - MainWindow.AircraftData.AirSpeedMs;
-				var speedDeltaSoft = 20;
-				var speedDeltaFactor = Math.Min(Math.Abs(speedDelta) / speedDeltaSoft, 1);
+				var speedTrendDelta = SpeedTrendPreviousValue > 0 ? MainWindow.AircraftData.AirSpeedMs - SpeedTrendPreviousValue : 0;
+				SpeedTrendPreviousValue = MainWindow.AircraftData.AirSpeedMs;
+
+
+				// tickInterval - delta
+				// trendInterval - x
+				var speedTrendInterval = 2d;
+				var speedTrendPrediction = MainWindow.AircraftData.AirSpeedMs + speedTrendInterval * speedTrendDelta / TickInterval.TotalSeconds;
+
+				var speedDelta = MainWindow.RemoteData.AutopilotAirSpeedMs - speedTrendPrediction;
+				var speedDeltaPrecise = 5;
 				var throttleFactor = speedDelta >= 0 ? 1 : 0;
 
 				ThrottlePID.P = 0.001;
-				ThrottlePID.I = 0.01 + speedDeltaFactor * 0.5;
+				ThrottlePID.I = Math.Abs(speedDelta) > speedDeltaPrecise ? 0.5 : 0.08;
 				ThrottlePID.D = 0;
 
-				Throttle = ThrottlePID.Update(Throttle, throttleFactor, TickInterval.TotalSeconds);
+				Throttle = ThrottlePID.Update(Throttle, speedDelta >= 0 ? 1 : 0, TickInterval.TotalSeconds);
 				MainWindow.AircraftData.Computed.Throttle = Throttle;
 
 				// Pitch
