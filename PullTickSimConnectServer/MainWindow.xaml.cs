@@ -232,7 +232,7 @@ public partial class MainWindow : Window {
 				//Debug.WriteLine($"[FPV] -------------------------------");
 
 				//Debug.WriteLine($"[FPV] Plane LLA: {RadiansToDegrees(AircraftData.LatitudeRad)} x {RadiansToDegrees(AircraftData.LongitudeRad)} x {AircraftData.Computed.AltitudeM} m");
-				Debug.WriteLine($"[FPV] Plane PY: {RadiansToDegrees(AircraftData.PitchRad)} x {RadiansToDegrees(AircraftData.YawRad)}");
+				//Debug.WriteLine($"[FPV] Plane PY: {RadiansToDegrees(AircraftData.PitchRad)} x {RadiansToDegrees(AircraftData.YawRad)}");
 
 				// Cartesian
 				var cartesian = GeodeticToCartesian(AircraftData.LatitudeRad, AircraftData.LongitudeRad, AircraftData.Computed.AltitudeM);
@@ -282,7 +282,7 @@ public partial class MainWindow : Window {
 					AircraftData.Computed.FlightPathYawRad = 0;
 				}
 
-				Debug.WriteLine($"[FPV] FPV PY: {RadiansToDegrees(AircraftData.Computed.FlightPathPitchRad)} x {RadiansToDegrees(AircraftData.Computed.FlightPathYawRad)}");
+				//Debug.WriteLine($"[FPV] FPV PY: {RadiansToDegrees(AircraftData.Computed.FlightPathPitchRad)} x {RadiansToDegrees(AircraftData.Computed.FlightPathYawRad)}");
 			}
 
 			Thread.Sleep(TimeSpan.FromSeconds(interval));

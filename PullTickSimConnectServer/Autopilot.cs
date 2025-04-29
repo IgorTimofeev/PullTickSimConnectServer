@@ -18,19 +18,16 @@ public class Autopilot {
 	public Autopilot(MainWindow mainWindow) {
 		MainWindow = mainWindow;
 
-		new Thread(Tick) {
-			Name = "Autopilot thread",
-			IsBackground = true
-		}.Start();
+		Timer = new(Tick, null, TickInterval, Timeout.InfiniteTimeSpan);
 	}
 
 	MainWindow MainWindow { get; init; }
 
-	static readonly TimeSpan TickInterval = TimeSpan.FromMilliseconds(100);
+	static readonly TimeSpan TickInterval = TimeSpan.FromSeconds(1d / 30d);
 
 	double ThrottleDeltaMax = 0.2;
-	LowPassInterpolator ThrottleInterpolator = new(0.02);
-	public double Throttle => ThrottleInterpolator.Value;
+	public double Throttle { get; private set; } = 0;
+	PIDController ThrottlePID = new(1.6, 0.014, 11.3, 0, 1);
 
 	double PitchDeltaMaxM = 30;
 	double PitchMaxRad = MainWindow.DegreesToRadians(5);
@@ -45,44 +42,45 @@ public class Autopilot {
 	//double YawInterpolationFactor = 0.5;
 	public double Ailerons { get; private set; } = 0;
 
-	void Tick() {
-		while (true) {
-			lock (MainWindow.AircraftDataSyncRoot) {
-				lock (MainWindow.RemoteDataSyncRoot) {
-					// Throttle
-					if (MainWindow.AircraftData.AirSpeedMs >= MainWindow.RemoteData.AutopilotAirSpeedMs) {
-						ThrottleInterpolator.TargetValue = 0;
-					}
-					else {
-						ThrottleInterpolator.TargetValue = 1;
-					}
+	Timer Timer;
 
-					ThrottleInterpolator.Tick();
+	void Tick(object? _) {
+		lock (MainWindow.AircraftDataSyncRoot) {
+			lock (MainWindow.RemoteDataSyncRoot) {
+				// Throttle
+				var speedDelta = MainWindow.RemoteData.AutopilotAirSpeedMs - MainWindow.AircraftData.AirSpeedMs;
+				var speedDeltaSoft = 20;
+				var speedDeltaFactor = Math.Min(Math.Abs(speedDelta) / speedDeltaSoft, 1);
+				var throttleFactor = speedDelta >= 0 ? 1 : 0;
 
-					MainWindow.AircraftData.Computed.Throttle = ThrottleInterpolator.Value;
+				ThrottlePID.P = 0.001;
+				ThrottlePID.I = 0.01 + speedDeltaFactor * 0.5;
+				ThrottlePID.D = 0;
 
-					// Pitch
-					var pitchDeltaM = MainWindow.RemoteData.AutopilotAltitudeM - MainWindow.AircraftData.Computed.AltitudeM;
-					var pitchFactor = Math.Clamp(pitchDeltaM / PitchDeltaMaxM, -1, 1);
-					var pitchAngleRad = pitchFactor * PitchMaxRad;
+				Throttle = ThrottlePID.Update(Throttle, throttleFactor, TickInterval.TotalSeconds);
+				MainWindow.AircraftData.Computed.Throttle = Throttle;
 
-					MainWindow.AircraftData.Computed.FlightDirectorPitchRad = pitchAngleRad;
+				// Pitch
+				var pitchDeltaM = MainWindow.RemoteData.AutopilotAltitudeM - MainWindow.AircraftData.Computed.AltitudeM;
+				var pitchFactor = Math.Clamp(pitchDeltaM / PitchDeltaMaxM, -1, 1);
+				var pitchAngleRad = pitchFactor * PitchMaxRad;
 
-					// Elevator
-					var pitchAngleDeltaRad = pitchAngleRad - MainWindow.AircraftData.PitchRad;
+				MainWindow.AircraftData.Computed.FlightDirectorPitchRad = pitchAngleRad;
 
-					// Delta > 0 = nose up, delta < 0 = nose down
-					var elevatorFactor = Math.Clamp(pitchAngleDeltaRad / PitchMaxRad, -1, 1) * ElevatorFactorMax;
+				// Elevator
+				var pitchAngleDeltaRad = pitchAngleRad - MainWindow.AircraftData.PitchRad;
 
-					ElevatorInterpolator.TargetValue = 1d - (1d + elevatorFactor) / 2d;
-					ElevatorInterpolator.Tick();
+				// Delta > 0 = nose up, delta < 0 = nose down
+				var elevatorFactor = Math.Clamp(pitchAngleDeltaRad / PitchMaxRad, -1, 1) * ElevatorFactorMax;
 
-					// Yaw
-					Ailerons = MainWindow.RemoteData.Ailerons;
-				}
+				ElevatorInterpolator.TargetValue = 1d - (1d + elevatorFactor) / 2d;
+				ElevatorInterpolator.Tick();
+
+				// Yaw
+				Ailerons = MainWindow.RemoteData.Ailerons;
 			}
-
-			Thread.Sleep(TickInterval);
 		}
+
+		Timer.Change(TickInterval, Timeout.InfiniteTimeSpan);
 	}
 }
