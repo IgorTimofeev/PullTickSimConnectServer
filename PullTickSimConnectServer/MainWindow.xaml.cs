@@ -29,7 +29,12 @@ public partial class MainWindow : Window {
 		// Autopilot
 		Autopilot = new(this);
 
-		// Initialization
+		FlightPathVectorTimer = new(
+			UpdateFlightPathVector,
+			null,
+			FlightPathVectorInterval,
+			Timeout.InfiniteTimeSpan
+		);
 
 		// Controls
 		TCPPortTextBox.Text = App.Settings.port.ToString();
@@ -43,11 +48,6 @@ public partial class MainWindow : Window {
 
 			Sim.Start();
 			TCP.Start(App.Settings.port);
-
-			new Thread(UpdateFlightPathVector) {
-				Name = "FPV / GS thread",
-				IsBackground = true
-			}.Start();
 
 			UpdateStatus();
 		};
@@ -74,10 +74,12 @@ public partial class MainWindow : Window {
 	public static unsafe int RemotePacketSize => sizeof(RemotePacket);
 	public static unsafe int AircraftPacketSize => sizeof(AircraftPacket);
 
-
 	readonly Sim Sim;
 	readonly TCP TCP;
 	readonly Autopilot Autopilot;
+
+	readonly Timer FlightPathVectorTimer;
+	static readonly TimeSpan FlightPathVectorInterval = TimeSpan.FromMilliseconds(200);
 
 	Vector3D OldFPVCartesian = new(float.NaN, float.NaN, float.NaN);
 
@@ -230,69 +232,65 @@ public partial class MainWindow : Window {
 		AircraftDataToAircraftPacket();
 	}
 
-	public void UpdateFlightPathVector() {
-		while (true) {
-			var interval = 0.5d;
+	public void UpdateFlightPathVector(object? _) {
+		lock (AircraftDataSyncRoot) {
+			//Debug.WriteLine($"[FPV] -------------------------------");
 
-			lock (AircraftDataSyncRoot) {
-				//Debug.WriteLine($"[FPV] -------------------------------");
+			//Debug.WriteLine($"[FPV] Plane LLA: {RadiansToDegrees(AircraftData.LatitudeRad)} x {RadiansToDegrees(AircraftData.LongitudeRad)} x {AircraftData.Computed.AltitudeM} m");
+			//Debug.WriteLine($"[FPV] Plane PY: {RadiansToDegrees(AircraftData.PitchRad)} x {RadiansToDegrees(AircraftData.YawRad)}");
 
-				//Debug.WriteLine($"[FPV] Plane LLA: {RadiansToDegrees(AircraftData.LatitudeRad)} x {RadiansToDegrees(AircraftData.LongitudeRad)} x {AircraftData.Computed.AltitudeM} m");
-				//Debug.WriteLine($"[FPV] Plane PY: {RadiansToDegrees(AircraftData.PitchRad)} x {RadiansToDegrees(AircraftData.YawRad)}");
+			// Cartesian
+			var cartesian = GeodeticToCartesian(AircraftData.LatitudeRad, AircraftData.LongitudeRad, AircraftData.Computed.AltitudeM);
 
-				// Cartesian
-				var cartesian = GeodeticToCartesian(AircraftData.LatitudeRad, AircraftData.LongitudeRad, AircraftData.Computed.AltitudeM);
+			//Debug.WriteLine($"[FPV] Cartesian: {cartesian.X} x {cartesian.Y} x {cartesian.Z}");
 
-				//Debug.WriteLine($"[FPV] Cartesian: {cartesian.X} x {cartesian.Y} x {cartesian.Z}");
+			Vector3D delta;
 
-				Vector3D delta;
-
-				// First call
-				if (double.IsNaN(OldFPVCartesian.X)) {
-					delta = new();
-					OldFPVCartesian = cartesian;
-				}
-				else {
-					delta = cartesian - OldFPVCartesian;
-					OldFPVCartesian = cartesian;
-				}
-
-				//Debug.WriteLine($"[FPV] Delta: {delta.X} x {delta.Y} x {delta.Z}");
-
-				var deltaLength = delta.Length;
-
-				if (deltaLength > 0) {
-					// Ground speed
-					// deltaLength m - interval s
-					// x m - 1 s
-					AircraftData.Computed.GroundSpeedMs = deltaLength * 1d / interval;
-					//Debug.WriteLine($"[FPV] G/S: {AircraftData.groundSpeedMs} m/s");
-
-					// FPV
-					var rotated = delta;
-					rotated = RotateAroundZAxis(rotated, -AircraftData.LongitudeRad);
-					rotated = RotateAroundYAxis(rotated, -Math.PI / 2d + AircraftData.LatitudeRad);
-					rotated = RotateAroundZAxis(rotated,AircraftData.YawRad);
-
-					//Debug.WriteLine($"[FPV] Rotated: {rotated.X} x {rotated.Y} x {rotated.Z}");
-
-					AircraftData.Computed.FlightPathPitchRad = deltaLength == 0 ? 0 : Math.Asin(rotated.Z / deltaLength);
-					AircraftData.Computed.FlightPathYawRad = deltaLength == 0 ? 0 : -Math.Atan(rotated.Y / rotated.X);
-
-					//AircraftData.flightPathPitch = 20f / 180f * Math.PI;
-					//AircraftData.Computed.FlightPathYawRad = 0;
-				}
-				else {
-					AircraftData.Computed.GroundSpeedMs = 0;
-					AircraftData.Computed.FlightPathPitchRad = 0;
-					AircraftData.Computed.FlightPathYawRad = 0;
-				}
-
-				//Debug.WriteLine($"[FPV] FPV PY: {RadiansToDegrees(AircraftData.Computed.FlightPathPitchRad)} x {RadiansToDegrees(AircraftData.Computed.FlightPathYawRad)}");
+			// First call
+			if (double.IsNaN(OldFPVCartesian.X)) {
+				delta = new();
+				OldFPVCartesian = cartesian;
+			}
+			else {
+				delta = cartesian - OldFPVCartesian;
+				OldFPVCartesian = cartesian;
 			}
 
-			Thread.Sleep(TimeSpan.FromSeconds(interval));
+			//Debug.WriteLine($"[FPV] Delta: {delta.X} x {delta.Y} x {delta.Z}");
+
+			var deltaLength = delta.Length;
+
+			if (deltaLength > 0) {
+				// Ground speed
+				// deltaLength m - interval s
+				// x m - 1 s
+				AircraftData.Computed.GroundSpeedMs = deltaLength * 1d / FlightPathVectorInterval.TotalSeconds;
+				//Debug.WriteLine($"[FPV] G/S: {AircraftData.groundSpeedMs} m/s");
+
+				// FPV
+				var rotated = delta;
+				rotated = RotateAroundZAxis(rotated, -AircraftData.LongitudeRad);
+				rotated = RotateAroundYAxis(rotated, -Math.PI / 2d + AircraftData.LatitudeRad);
+				rotated = RotateAroundZAxis(rotated,AircraftData.YawRad);
+
+				//Debug.WriteLine($"[FPV] Rotated: {rotated.X} x {rotated.Y} x {rotated.Z}");
+
+				AircraftData.Computed.FlightPathPitchRad = deltaLength == 0 ? 0 : Math.Asin(rotated.Z / deltaLength);
+				AircraftData.Computed.FlightPathYawRad = deltaLength == 0 ? 0 : -Math.Atan(rotated.Y / rotated.X);
+
+				//AircraftData.flightPathPitch = 20f / 180f * Math.PI;
+				//AircraftData.Computed.FlightPathYawRad = 0;
+			}
+			else {
+				AircraftData.Computed.GroundSpeedMs = 0;
+				AircraftData.Computed.FlightPathPitchRad = 0;
+				AircraftData.Computed.FlightPathYawRad = 0;
+			}
+
+			//Debug.WriteLine($"[FPV] FPV PY: {RadiansToDegrees(AircraftData.Computed.FlightPathPitchRad)} x {RadiansToDegrees(AircraftData.Computed.FlightPathYawRad)}");
 		}
+
+		FlightPathVectorTimer.Change(FlightPathVectorInterval, Timeout.InfiniteTimeSpan);
 	}
 
 	public static double RadiansToDegrees(double radians) => radians / Math.PI * 180d;
