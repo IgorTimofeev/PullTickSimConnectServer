@@ -29,6 +29,8 @@ public class Autopilot {
 	public double Elevator { get; private set; } = 0.5;
 	public double Ailerons { get; private set; } = 0.5;
 
+	double PitchRad = 0;
+
 	double SpeedTrendPreviousMs = double.NaN;
 	double AltitudeTrendPreviousM = double.NaN;
 	double PitchTrendPreviousRad = double.NaN;
@@ -38,90 +40,138 @@ public class Autopilot {
 	void Tick(object? _) {
 		lock (MainWindow.AircraftDataSyncRoot) {
 			lock (MainWindow.RemoteDataSyncRoot) {
+				var isFlying = MainWindow.AircraftData.AirSpeedMs > MainWindow.KnotsToMetersPerSecond(20);
 
 				MainWindow.RemoteData.AutopilotAirSpeedMs = MainWindow.KnotsToMetersPerSecond(90);
 
-				// -------------------------------- Throttle --------------------------------
+
+				// -------------------------------- Trends --------------------------------
 
 				// Speed
-				var speedTrendDeltaMs = double.IsNaN(SpeedTrendPreviousMs) ? 0 : MainWindow.AircraftData.AirSpeedMs - SpeedTrendPreviousMs;
+				var speedTrendPrevDeltaMs = double.IsNaN(SpeedTrendPreviousMs) ? 0 : MainWindow.AircraftData.AirSpeedMs - SpeedTrendPreviousMs;
 				SpeedTrendPreviousMs = MainWindow.AircraftData.AirSpeedMs;
 
-				var speedTrendIntervalS = 3d;
-				var speedTrendPredictedDeltaMs = speedTrendIntervalS * speedTrendDeltaMs / TickInterval.TotalSeconds;
+				var speedTrendIntervalS = 2d;
+				var speedTrendPredictedDeltaMs = speedTrendIntervalS * speedTrendPrevDeltaMs / TickInterval.TotalSeconds;
 				var speedTrendPredictedMs = MainWindow.AircraftData.AirSpeedMs + speedTrendPredictedDeltaMs;
+				
+				var speedDeltaMs = MainWindow.RemoteData.AutopilotAirSpeedMs - MainWindow.AircraftData.AirSpeedMs;
+				var speedTrendDeltaTargetMs = MainWindow.RemoteData.AutopilotAirSpeedMs - speedTrendPredictedMs;
 
-				var speedDeltaMs = MainWindow.RemoteData.AutopilotAirSpeedMs - speedTrendPredictedMs;
-				var speedDeltaSmoothingMaxMs = MainWindow.KnotsToMetersPerSecond(20);
-				var speedDeltaFactor = Math.Min(Math.Abs(speedDeltaMs) / speedDeltaSmoothingMaxMs, 1);
+				// Altitude
+				var altitudeTrendPrevDeltaM = double.IsNaN(AltitudeTrendPreviousM) ? 0 : MainWindow.AircraftData.Computed.AltitudeM - AltitudeTrendPreviousM;
+				AltitudeTrendPreviousM = MainWindow.AircraftData.Computed.AltitudeM;
 
-				// Throttle
-				var throttleLPFFactorMin = 0.002;
-				var throttleLPFFactorMax = 0.05;
+				var altitudeTrendIntervalS = 2d;
+				var altitudeTrendPredictedDeltaM = altitudeTrendIntervalS * altitudeTrendPrevDeltaM / TickInterval.TotalSeconds;
+				var altitudeTrendPredictedM = MainWindow.AircraftData.Computed.AltitudeM + altitudeTrendPredictedDeltaM;
+
+				var altitudeTrendDeltaTargetM = MainWindow.RemoteData.AutopilotAltitudeM - altitudeTrendPredictedM;
+
+				// Pitch
+				var pitchTrendPrevDeltaRad = double.IsNaN(PitchTrendPreviousRad) ? 0 : MainWindow.AircraftData.PitchRad - PitchTrendPreviousRad;
+				PitchTrendPreviousRad = MainWindow.AircraftData.PitchRad;
+
+				var pitchTrendIntervalS = 1d;
+				var pitchTrendPredictedDeltaRad = pitchTrendIntervalS * pitchTrendPrevDeltaRad / TickInterval.TotalSeconds;
+				var pitchTrendPredictedRad = MainWindow.AircraftData.PitchRad + pitchTrendPredictedDeltaRad;
+		
+				// -------------------------------- Throttle --------------------------------
+
+				var throttleTargetFactorAltitudeDeltaMaxM = MainWindow.FeetToMeters(20);
+				var throttleTargetDerateFactor = 1.0;
+
+				var throttleTargetFactor =
+					(
+						// Climbing
+						altitudeTrendDeltaTargetM > throttleTargetFactorAltitudeDeltaMaxM
+						? 1.0
+						: (
+							// Descending
+							altitudeTrendDeltaTargetM < -throttleTargetFactorAltitudeDeltaMaxM
+							? 0
+							// Autothrottle
+							: (
+								speedTrendDeltaTargetMs > 0
+								? 1.0
+								: 0.0
+							)
+						)
+					)
+					* throttleTargetDerateFactor;
+
+				var throttleTargetLPFFactorMin = 0.002;
+				var throttleTargetLPFFactorMax = 0.05;
+				var throttleTargetLPFFactorMaxFactor = Math.Min(Math.Abs(speedTrendDeltaTargetMs) / throttleTargetFactorAltitudeDeltaMaxM, 1);
+				var throttleTargetLPFFactor = throttleTargetLPFFactorMin + (throttleTargetLPFFactorMax - throttleTargetLPFFactorMin) * throttleTargetLPFFactorMaxFactor;
 
 				Throttle = LowPassFilter.Apply(
 					Throttle,
-					speedDeltaMs > 0 ? 1 : 0,
-					throttleLPFFactorMin + (throttleLPFFactorMax - throttleLPFFactorMin) * speedDeltaFactor
+					throttleTargetFactor,
+					throttleTargetLPFFactor
 				);
 
 				MainWindow.AircraftData.Computed.Throttle = Throttle;
 
+				// -------------------------------- Target pitch --------------------------------
+
+				var pitchTargetClimbRad = MainWindow.DegreesToRadians(10);
+				var pitchTargetDescentRad = MainWindow.DegreesToRadians(10);
+
+				var pitchTargetRad =
+					isFlying
+					? (speedTrendDeltaTargetMs > 0 ? -pitchTargetClimbRad : pitchTargetDescentRad)
+					: 0;
+
+				var pitchTargetTrendDeltaRad = pitchTargetRad - pitchTrendPredictedRad;
+
+				var pitchTargetLPFFactorMin = 0.001;
+				var pitchTargetLPFFactorMax = 0.05;
+
+				var pitchTargetLPFFactorMaxPitchDeltaRad = MainWindow.DegreesToRadians(20);
+				var pitchTargetLPFFactorMaxSpeedDeltaMs = MainWindow.KnotsToMetersPerSecond(10);
+				var pitchTargetLPFFactorMaxAltitudeDeltaM = MainWindow.FeetToMeters(1000);
+		
+				var pitchTargetLPFFactorMaxFactorPitchFactor = Math.Min(Math.Abs(pitchTargetTrendDeltaRad) / pitchTargetLPFFactorMaxPitchDeltaRad, 1);
+				var pitchTargetLPFFactorMaxFactorSpeedFactor = Math.Min(Math.Abs(speedTrendDeltaTargetMs) / pitchTargetLPFFactorMaxSpeedDeltaMs, 1);
+				var pitchTargetLPFFactorMaxFactorAltitudeFactor = Math.Min(Math.Abs(altitudeTrendDeltaTargetM) / pitchTargetLPFFactorMaxAltitudeDeltaM, 1);
+
+				var pitchTargetLPFFactor =
+					pitchTargetLPFFactorMin
+					+ (pitchTargetLPFFactorMax - pitchTargetLPFFactorMin)
+					* pitchTargetLPFFactorMaxFactorPitchFactor
+					* pitchTargetLPFFactorMaxFactorSpeedFactor
+					* pitchTargetLPFFactorMaxFactorAltitudeFactor;
+
+				PitchRad = LowPassFilter.Apply(
+					PitchRad,
+					pitchTargetRad,
+					pitchTargetLPFFactor
+				);
+
+				MainWindow.AircraftData.Computed.FlightDirectorPitchRad = PitchRad;
+
 				// -------------------------------- Elevator --------------------------------
 
-				// Altitude
-				var altitudeTrendDeltaM = double.IsNaN(AltitudeTrendPreviousM) ? 0 : MainWindow.AircraftData.Computed.AltitudeM - AltitudeTrendPreviousM;
-				AltitudeTrendPreviousM = MainWindow.AircraftData.Computed.AltitudeM;
-
-				var altitudeTrendIntervalS = 2d;
-				var altitudeTrendPredictedDeltaM = altitudeTrendIntervalS * altitudeTrendDeltaM / TickInterval.TotalSeconds;
-				var altitudeTrendPredictedM = MainWindow.AircraftData.Computed.AltitudeM + altitudeTrendPredictedDeltaM;
-
-				var altitudedDeltaM = MainWindow.RemoteData.AutopilotAltitudeM - altitudeTrendPredictedM;
-				var altitudedDeltaSmoothForPitchAngleMaxM = MainWindow.FeetToMeters(10);
-
-				// Pitch
-				var pitchTrendDeltaRad = double.IsNaN(PitchTrendPreviousRad) ? 0 : MainWindow.AircraftData.PitchRad - PitchTrendPreviousRad;
-				PitchTrendPreviousRad = MainWindow.AircraftData.PitchRad;
-
-				var pitchTrendIntervalS = 2d;
-				var pitchTrendPredictedDeltaRad = pitchTrendIntervalS * pitchTrendDeltaRad / TickInterval.TotalSeconds;
-				var pitchTrendPredictedRad = MainWindow.AircraftData.PitchRad + pitchTrendPredictedDeltaRad;
-
-				double pitchRad;
-
-				var pitchSpeedDeltaClimbMargin = MainWindow.KnotsToMetersPerSecond(5);
-
-				if (altitudedDeltaM > 0 && speedDeltaMs > pitchSpeedDeltaClimbMargin) {
-					pitchRad = MainWindow.DegreesToRadians(1);
-				}
-				else {
-					var pitchMinRad = MainWindow.DegreesToRadians(5);
-					var pitchMaxRad = MainWindow.DegreesToRadians(10);
-					var pitchFactor = Math.Clamp(altitudedDeltaM / altitudedDeltaSmoothForPitchAngleMaxM, -1, 1);
-					var pitchMaxFactor = speedDeltaMs < -pitchSpeedDeltaClimbMargin ? 1 : speedDeltaFactor;
-					pitchRad = (pitchMinRad + (pitchMaxRad - pitchMinRad) * pitchMaxFactor) * pitchFactor;
-				}
-
-				MainWindow.AircraftData.Computed.FlightDirectorPitchRad = pitchRad;
-
-				var pitchDeltaRad = pitchRad - pitchTrendPredictedRad;
-				var pitchDeltaSmoothingRad = MainWindow.DegreesToRadians(20);
-				var pitchDeltaFactor = Math.Min(Math.Abs(pitchDeltaRad) / pitchDeltaSmoothingRad, 1);
+				var elevatorPitchDeltaRad = PitchRad - pitchTrendPredictedRad;
+				var elevatorPitchDeltaSmoothingRad = MainWindow.DegreesToRadians(20);
 
 				// Elevator
 				var elevatorLPFFactorMin = 0.0001;
-				var elevatorLPFFactorMax = 0.01;
+				var elevatorLPFFactorMax = 0.02;
+				var elevatorLPFFactorMaxFactor = Math.Min(Math.Abs(elevatorPitchDeltaRad) / elevatorPitchDeltaSmoothingRad, 1);
 
 				Elevator = LowPassFilter.Apply(
 					Elevator,
-					pitchDeltaRad > 0 ? 0 : 1,
-					elevatorLPFFactorMin + (elevatorLPFFactorMax - elevatorLPFFactorMin) * pitchDeltaFactor
+					elevatorPitchDeltaRad > 0 ? 0 : 1,
+					elevatorLPFFactorMin + (elevatorLPFFactorMax - elevatorLPFFactorMin) * elevatorLPFFactorMaxFactor
 				);
+
+				//Debug.WriteLine($"Elevator: {Elevator:N10}");
 
 				// -------------------------------- Ailerons --------------------------------
 
-				Ailerons = MainWindow.RemoteData.Ailerons;
+
 			}
 		}
 
