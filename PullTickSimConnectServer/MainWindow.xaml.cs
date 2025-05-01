@@ -40,11 +40,14 @@ public partial class MainWindow : Window {
 		TCPPortTextBox.Text = App.Settings.port.ToString();
 
 		Loaded += (s, e) => {
-			RemoteData.AutopilotAutoThrottle = true;
 			RemoteData.AutopilotAirSpeedMs = KnotsToMetersPerSecond(90);
+			RemoteData.AutopilotAutoThrottle = true;
 
-			RemoteData.AutopilotLevelChange = true;
 			RemoteData.AutopilotAltitudeM = FeetToMeters(5000);
+			RemoteData.AutopilotLevelChange = true;
+
+			RemoteData.AutopilotHeadingHold = true;
+			RemoteData.AutopilotHeadingRad = 0;
 
 			Sim.Start();
 			TCP.Start(App.Settings.port);
@@ -148,10 +151,8 @@ public partial class MainWindow : Window {
 				Sim.SendThrottle2Event(RemoteData.Throttle);
 			}
 
-			//Sim.SendAileronsEvent(1 - Autopilot.Ailerons);
-
-			// Elevator
 			Sim.SendElevatorEvent(RemoteData.AutopilotLevelChange ? Autopilot.Elevator : RemoteData.Elevator);
+			Sim.SendAileronsEvent(1 - (RemoteData.AutopilotHeadingHold ? Autopilot.Ailerons : RemoteData.Ailerons));
 
 			//Sim.SendRudderEvent(1 - RemoteData.Rudder);
 

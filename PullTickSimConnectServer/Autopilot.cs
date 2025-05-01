@@ -25,15 +25,17 @@ public class Autopilot {
 
 	static readonly TimeSpan TickInterval = TimeSpan.FromSeconds(1d / 30d);
 
-	public double Throttle { get; private set; } = 0;
+	public double Throttle { get; private set; } = 0.5;
 	public double Elevator { get; private set; } = 0.5;
 	public double Ailerons { get; private set; } = 0.5;
 
-	double PitchRad = 0;
+	double PitchRad = 0.5;
 
 	double SpeedTrendPreviousMs = double.NaN;
 	double AltitudeTrendPreviousM = double.NaN;
 	double PitchTrendPreviousRad = double.NaN;
+	double YawTrendPreviousRad = double.NaN;
+	double RollTrendPreviousRad = double.NaN;
 
 	readonly Timer Timer;
 
@@ -75,7 +77,25 @@ public class Autopilot {
 				var pitchTrendIntervalS = 1d;
 				var pitchTrendPredictedDeltaRad = pitchTrendIntervalS * pitchTrendPrevDeltaRad / TickInterval.TotalSeconds;
 				var pitchTrendPredictedRad = MainWindow.AircraftData.PitchRad + pitchTrendPredictedDeltaRad;
-		
+
+				// Yaw
+				var yawTrendPrevDeltaRad = double.IsNaN(YawTrendPreviousRad) ? 0 : MainWindow.AircraftData.YawRad - YawTrendPreviousRad;
+				YawTrendPreviousRad = MainWindow.AircraftData.YawRad;
+
+				var yawTrendIntervalS = 2d;
+				var yawTrendPredictedDeltaRad = yawTrendIntervalS * yawTrendPrevDeltaRad / TickInterval.TotalSeconds;
+				var yawTrendPredictedRad = MainWindow.AircraftData.YawRad + yawTrendPredictedDeltaRad;
+
+				var yawTrendDeltaTargetRad = MainWindow.RemoteData.AutopilotHeadingRad - yawTrendPredictedRad;
+
+				// Roll
+				var rollTrendPrevDeltaRad = double.IsNaN(RollTrendPreviousRad) ? 0 : MainWindow.AircraftData.RollRad - RollTrendPreviousRad;
+				RollTrendPreviousRad = MainWindow.AircraftData.RollRad;
+
+				var rollTrendIntervalS = 1d;
+				var rollTrendPredictedDeltaRad = rollTrendIntervalS * rollTrendPrevDeltaRad / TickInterval.TotalSeconds;
+				var rollTrendPredictedRad = MainWindow.AircraftData.RollRad + rollTrendPredictedDeltaRad;
+
 				// -------------------------------- Throttle --------------------------------
 
 				var throttleTargetFactorAltitudeDeltaMaxM = MainWindow.FeetToMeters(20);
@@ -113,14 +133,13 @@ public class Autopilot {
 
 				MainWindow.AircraftData.Computed.Throttle = Throttle;
 
-				// -------------------------------- Target pitch --------------------------------
+				// -------------------------------- Pitch --------------------------------
 
-				var pitchTargetClimbRad = MainWindow.DegreesToRadians(10);
-				var pitchTargetDescentRad = MainWindow.DegreesToRadians(10);
+				var pitchTargetDeltaMaxRad = MainWindow.DegreesToRadians(10);
 
 				var pitchTargetRad =
 					isFlying
-					? (speedTrendDeltaTargetMs > 0 ? -pitchTargetClimbRad : pitchTargetDescentRad)
+					? (speedTrendDeltaTargetMs > 0 ? -pitchTargetDeltaMaxRad : pitchTargetDeltaMaxRad)
 					: 0;
 
 				var pitchTargetTrendDeltaRad = pitchTargetRad - pitchTrendPredictedRad;
@@ -156,22 +175,65 @@ public class Autopilot {
 				var elevatorPitchDeltaRad = PitchRad - pitchTrendPredictedRad;
 				var elevatorPitchDeltaSmoothingRad = MainWindow.DegreesToRadians(20);
 
-				// Elevator
+				var elevatorTargetFactor =
+					isFlying
+					? (elevatorPitchDeltaRad > 0 ? 0 : 1)
+					: 0.5;
+
 				var elevatorLPFFactorMin = 0.0001;
 				var elevatorLPFFactorMax = 0.02;
 				var elevatorLPFFactorMaxFactor = Math.Min(Math.Abs(elevatorPitchDeltaRad) / elevatorPitchDeltaSmoothingRad, 1);
+				var elevatorLPFFactor = elevatorLPFFactorMin + (elevatorLPFFactorMax - elevatorLPFFactorMin) * elevatorLPFFactorMaxFactor;
 
 				Elevator = LowPassFilter.Apply(
 					Elevator,
-					elevatorPitchDeltaRad > 0 ? 0 : 1,
-					elevatorLPFFactorMin + (elevatorLPFFactorMax - elevatorLPFFactorMin) * elevatorLPFFactorMaxFactor
+					elevatorTargetFactor,
+					elevatorLPFFactor
 				);
 
 				//Debug.WriteLine($"Elevator: {Elevator:N10}");
 
+				// -------------------------------- Yaw --------------------------------
+
+				//Debug.WriteLine($"YawDelta: {MainWindow.RadiansToDegrees(yawTrendDeltaTargetRad)} deg");
+
+				MainWindow.AircraftData.Computed.FlightDirectorYawRad = MainWindow.RemoteData.AutopilotHeadingRad;
+
+				// -------------------------------- Roll --------------------------------
+
+
+				var rollMaxRad = MainWindow.DegreesToRadians(30);
+
+				var yawToRight = yawTrendDeltaTargetRad > 0 && yawTrendDeltaTargetRad < Math.PI || yawTrendDeltaTargetRad < 0 && yawTrendDeltaTargetRad < -Math.PI;
+				var rollToRight = yawToRight && rollTrendPredictedRad < rollMaxRad || !yawToRight && rollTrendPredictedRad < -rollMaxRad;
+
+				var rollTargetRadYawSmoothingRad = MainWindow.DegreesToRadians(70);
+				var rollTargetRadFactor = Math.Min(Math.Abs(yawTrendDeltaTargetRad) / rollTargetRadYawSmoothingRad, 1);
+				var rollTargetRad = (rollToRight ? rollMaxRad : -rollMaxRad) * rollTargetRadFactor;
+
+				//Debug.WriteLine($"Roll: {MainWindow.RadiansToDegrees(rollTargetRad)} deg");
+
 				// -------------------------------- Ailerons --------------------------------
 
+				var aileronsLPFFactorMin = 0.0001;
+				var aileronsLPFFactorMax = 0.01;
 
+				var aileronsRollTargetDeltaRad = rollTargetRad - rollTrendPredictedRad;
+				var aileronsTargetFactor = isFlying ? (aileronsRollTargetDeltaRad > 0 ? 1 : 0) : 0.5;
+
+				var aileronsRollDeltaSmoothingRad = MainWindow.DegreesToRadians(30);
+				var aileronsLPFFactorMaxFactorRollFactor = Math.Min(Math.Abs(aileronsRollTargetDeltaRad) / aileronsRollDeltaSmoothingRad, 1);
+
+				var aileronsLPFFactor =
+					aileronsLPFFactorMin
+					+ (aileronsLPFFactorMax - aileronsLPFFactorMin)
+					* aileronsLPFFactorMaxFactorRollFactor;
+
+				Ailerons = LowPassFilter.Apply(
+					Ailerons,
+					aileronsTargetFactor,
+					aileronsLPFFactor
+				);
 			}
 		}
 
