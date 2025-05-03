@@ -82,9 +82,9 @@ public partial class MainWindow : Window {
 	readonly Autopilot Autopilot;
 
 	readonly Timer FlightPathVectorTimer;
-	static readonly TimeSpan FlightPathVectorInterval = TimeSpan.FromMilliseconds(200);
+	static readonly TimeSpan FlightPathVectorInterval = TimeSpan.FromMilliseconds(250);
 
-	Vector3D OldFPVCartesian = new(float.NaN, float.NaN, float.NaN);
+	Vector3D FPVPrevousCartesian = new(float.NaN, float.NaN, float.NaN);
 
 	public void SimDataToAircraftData(SimData simData) {
 		// Aircraft data
@@ -248,13 +248,13 @@ public partial class MainWindow : Window {
 			Vector3D delta;
 
 			// First call
-			if (double.IsNaN(OldFPVCartesian.X)) {
+			if (double.IsNaN(FPVPrevousCartesian.X)) {
 				delta = new();
-				OldFPVCartesian = cartesian;
+				FPVPrevousCartesian = cartesian;
 			}
 			else {
-				delta = cartesian - OldFPVCartesian;
-				OldFPVCartesian = cartesian;
+				delta = cartesian - FPVPrevousCartesian;
+				FPVPrevousCartesian = cartesian;
 			}
 
 			//Debug.WriteLine($"[FPV] Delta: {delta.X} x {delta.Y} x {delta.Z}");
@@ -276,8 +276,19 @@ public partial class MainWindow : Window {
 
 				//Debug.WriteLine($"[FPV] Rotated: {rotated.X} x {rotated.Y} x {rotated.Z}");
 
-				AircraftData.Computed.FlightPathPitchRad = deltaLength == 0 ? 0 : Math.Asin(rotated.Z / deltaLength);
-				AircraftData.Computed.FlightPathYawRad = deltaLength == 0 ? 0 : -Math.Atan(rotated.Y / rotated.X);
+				var FPVLPFFactor = 0.2;
+
+				AircraftData.Computed.FlightPathPitchRad = LowPassFilter.Apply(
+					AircraftData.Computed.FlightPathPitchRad,
+					deltaLength == 0 ? 0 : Math.Asin(rotated.Z / deltaLength),
+					FPVLPFFactor
+				);
+
+				AircraftData.Computed.FlightPathYawRad = LowPassFilter.Apply(
+					AircraftData.Computed.FlightPathYawRad,
+					deltaLength == 0 ? 0 : -Math.Atan(rotated.Y / rotated.X),
+					FPVLPFFactor
+				);
 
 				//AircraftData.flightPathPitch = 20f / 180f * Math.PI;
 				//AircraftData.Computed.FlightPathYawRad = 0;

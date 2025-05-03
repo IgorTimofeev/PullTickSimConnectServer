@@ -29,8 +29,8 @@ public class Autopilot {
 	public double Elevator { get; private set; } = 0.5;
 	public double Ailerons { get; private set; } = 0.5;
 
-	double PitchRad = 0.5;
-	double FDRollRad = 0.5;
+	double PitchRad = 0;
+	double FDRollRad = 0;
 
 	double SpeedTrendPreviousMs = double.NaN;
 	double AltitudeTrendPreviousM = double.NaN;
@@ -44,9 +44,6 @@ public class Autopilot {
 		lock (MainWindow.AircraftDataSyncRoot) {
 			lock (MainWindow.RemoteDataSyncRoot) {
 				var isFlying = MainWindow.AircraftData.AirSpeedMs > MainWindow.KnotsToMetersPerSecond(20);
-
-				MainWindow.RemoteData.AutopilotAirSpeedMs = MainWindow.KnotsToMetersPerSecond(90);
-
 
 				// -------------------------------- Trends --------------------------------
 
@@ -104,19 +101,15 @@ public class Autopilot {
 
 				var throttleTargetFactor =
 					(
-						// Climbing
-						altitudeTrendDeltaTargetM > throttleTargetFactorAltitudeDeltaMaxM
+						// Not enough speed
+						speedTrendDeltaTargetMs > 0
 						? 1.0
+						// Enough
 						: (
-							// Descending
-							altitudeTrendDeltaTargetM < -throttleTargetFactorAltitudeDeltaMaxM
-							? 0
-							// Autothrottle
-							: (
-								speedTrendDeltaTargetMs > 0
-								? 1.0
-								: 0.0
-							)
+							// Climbing
+							altitudeTrendDeltaTargetM > throttleTargetFactorAltitudeDeltaMaxM
+							? 1.0
+							: 0.0
 						)
 					)
 					* throttleTargetDerateFactor;
@@ -206,16 +199,17 @@ public class Autopilot {
 				var rollTargetRadYawSmoothingRad = MainWindow.DegreesToRadians(70);
 				var rollTargetRadFactor = Math.Min(Math.Abs(yawTrendDeltaTargetRad) / rollTargetRadYawSmoothingRad, 1);
 				var rollTargetRad = (rollToRight ? rollMaxRad : -rollMaxRad) * rollTargetRadFactor;
+				var rollTargetRadPredictedDelta = rollTargetRad - rollTrendPredictedRad;
 
 				//Debug.WriteLine($"Roll: {MainWindow.RadiansToDegrees(rollTargetRad)} deg");
-				
+
 				// -------------------------------- Flight director roll --------------------------------
 
 				var FDRollTargetRad = rollTargetRad - MainWindow.AircraftData.RollRad;
-				var FDRollTargetLPFFactorSmoothingMin = MainWindow.DegreesToRadians(20);
-				var FDRollTargetLPFFactorMaxFactor = Math.Min(Math.Abs(FDRollTargetRad) / FDRollTargetLPFFactorSmoothingMin, 1);
 				var FDRollTargetLPFFactorMin = 0.0001;
-				var FDRollTargetLPFFactorMax = 0.01;
+				var FDRollTargetLPFFactorMax = 0.005;
+				var FDRollTargetLPFFactorRollDeltaSmoothingRad = MainWindow.DegreesToRadians(20);
+				var FDRollTargetLPFFactorMaxFactor = Math.Min(Math.Abs(FDRollTargetRad) / FDRollTargetLPFFactorRollDeltaSmoothingRad, 1);
 				var FDRollTargetLPFFactor = FDRollTargetLPFFactorMin + (FDRollTargetLPFFactorMax - FDRollTargetLPFFactorMin) * FDRollTargetLPFFactorMaxFactor;
 
 				FDRollRad = LowPassFilter.Apply(
@@ -227,15 +221,13 @@ public class Autopilot {
 				MainWindow.AircraftData.Computed.FlightDirectorRollRad = FDRollRad;
 
 				// -------------------------------- Ailerons --------------------------------
+				
+				var aileronsTargetFactor = isFlying ? (rollTargetRadPredictedDelta > 0 ? 1 : 0) : 0.5;
 
 				var aileronsLPFFactorMin = 0.0001;
 				var aileronsLPFFactorMax = 0.01;
-
-				var aileronsRollTargetDeltaRad = rollTargetRad - rollTrendPredictedRad;
-				var aileronsTargetFactor = isFlying ? (aileronsRollTargetDeltaRad > 0 ? 1 : 0) : 0.5;
-
-				var aileronsRollDeltaSmoothingRad = MainWindow.DegreesToRadians(30);
-				var aileronsLPFFactorMaxFactorRollFactor = Math.Min(Math.Abs(aileronsRollTargetDeltaRad) / aileronsRollDeltaSmoothingRad, 1);
+				var aileronsLPFFactorRollDeltaSmoothingRad = MainWindow.DegreesToRadians(30);
+				var aileronsLPFFactorMaxFactorRollFactor = Math.Min(Math.Abs(rollTargetRadPredictedDelta) / aileronsLPFFactorRollDeltaSmoothingRad, 1);
 
 				var aileronsLPFFactor =
 					aileronsLPFFactorMin
