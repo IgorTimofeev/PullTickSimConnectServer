@@ -46,7 +46,7 @@ public class AircraftDataComputed {
 	public double FlightPathYawRad = 0;
 
 	public double FlightDirectorPitchRad = 0;
-	public double FlightDirectorYawRad = 0;
+	public double FlightDirectorRollRad = 0;
 }
 
 public class AircraftData {

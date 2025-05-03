@@ -30,6 +30,7 @@ public class Autopilot {
 	public double Ailerons { get; private set; } = 0.5;
 
 	double PitchRad = 0.5;
+	double FDRollRad = 0.5;
 
 	double SpeedTrendPreviousMs = double.NaN;
 	double AltitudeTrendPreviousM = double.NaN;
@@ -168,7 +169,7 @@ public class Autopilot {
 					pitchTargetLPFFactor
 				);
 
-				MainWindow.AircraftData.Computed.FlightDirectorPitchRad = PitchRad;
+				MainWindow.AircraftData.Computed.FlightDirectorPitchRad = PitchRad - MainWindow.AircraftData.PitchRad;
 
 				// -------------------------------- Elevator --------------------------------
 
@@ -193,11 +194,6 @@ public class Autopilot {
 
 				//Debug.WriteLine($"Elevator: {Elevator:N10}");
 
-				// -------------------------------- Yaw --------------------------------
-
-				//Debug.WriteLine($"YawDelta: {MainWindow.RadiansToDegrees(yawTrendDeltaTargetRad)} deg");
-
-				MainWindow.AircraftData.Computed.FlightDirectorYawRad = MainWindow.RemoteData.AutopilotHeadingRad;
 
 				// -------------------------------- Roll --------------------------------
 
@@ -212,6 +208,23 @@ public class Autopilot {
 				var rollTargetRad = (rollToRight ? rollMaxRad : -rollMaxRad) * rollTargetRadFactor;
 
 				//Debug.WriteLine($"Roll: {MainWindow.RadiansToDegrees(rollTargetRad)} deg");
+				
+				// -------------------------------- Flight director roll --------------------------------
+
+				var FDRollTargetRad = rollTargetRad - MainWindow.AircraftData.RollRad;
+				var FDRollTargetLPFFactorSmoothingMin = MainWindow.DegreesToRadians(20);
+				var FDRollTargetLPFFactorMaxFactor = Math.Min(Math.Abs(FDRollTargetRad) / FDRollTargetLPFFactorSmoothingMin, 1);
+				var FDRollTargetLPFFactorMin = 0.0001;
+				var FDRollTargetLPFFactorMax = 0.01;
+				var FDRollTargetLPFFactor = FDRollTargetLPFFactorMin + (FDRollTargetLPFFactorMax - FDRollTargetLPFFactorMin) * FDRollTargetLPFFactorMaxFactor;
+
+				FDRollRad = LowPassFilter.Apply(
+					FDRollRad,
+					FDRollTargetRad,
+					FDRollTargetLPFFactor
+				);
+
+				MainWindow.AircraftData.Computed.FlightDirectorRollRad = FDRollRad;
 
 				// -------------------------------- Ailerons --------------------------------
 

@@ -217,7 +217,7 @@ public partial class MainWindow : Window {
 				AircraftPacket.GroundSpeedMs = (float) AircraftData.Computed.GroundSpeedMs;
 
 				AircraftPacket.FlightDirectorPitch = (float) AircraftData.Computed.FlightDirectorPitchRad;
-				AircraftPacket.FlightDirectorYaw = (float) AircraftData.Computed.FlightDirectorYawRad;
+				AircraftPacket.FlightDirectorYaw = (float) AircraftData.Computed.FlightDirectorRollRad;
 
 				AircraftPacket.FlightPathPitch = (float) AircraftData.Computed.FlightPathPitchRad;
 				AircraftPacket.FlightPathYaw = (float) AircraftData.Computed.FlightPathYawRad;
