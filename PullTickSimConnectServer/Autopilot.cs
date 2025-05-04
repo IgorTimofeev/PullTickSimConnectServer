@@ -77,12 +77,12 @@ public class Autopilot {
 				var pitchTrendPredictedRad = MainWindow.AircraftData.PitchRad + pitchTrendPredictedDeltaRad;
 
 				// Yaw
-				var yawTrendPrevDeltaRad = double.IsNaN(YawTrendPreviousRad) ? 0 : MainWindow.AircraftData.YawRad - YawTrendPreviousRad;
-				YawTrendPreviousRad = MainWindow.AircraftData.YawRad;
+				var yawTrendPrevDeltaRad = double.IsNaN(YawTrendPreviousRad) ? 0 : MainWindow.AircraftData.YawMagneticRad - YawTrendPreviousRad;
+				YawTrendPreviousRad = MainWindow.AircraftData.YawMagneticRad;
 
 				var yawTrendIntervalS = 2d;
 				var yawTrendPredictedDeltaRad = yawTrendIntervalS * yawTrendPrevDeltaRad / TickInterval.TotalSeconds;
-				var yawTrendPredictedRad = MainWindow.AircraftData.YawRad + yawTrendPredictedDeltaRad;
+				var yawTrendPredictedRad = MainWindow.AircraftData.YawMagneticRad + yawTrendPredictedDeltaRad;
 
 				var yawTrendDeltaTargetRad = MainWindow.RemoteData.AutopilotHeadingRad - yawTrendPredictedRad;
 

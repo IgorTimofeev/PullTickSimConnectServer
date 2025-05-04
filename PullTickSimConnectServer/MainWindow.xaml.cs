@@ -93,7 +93,8 @@ public partial class MainWindow : Window {
 			AircraftData.LongitudeRad = simData.LongitudeRad;
 
 			AircraftData.PitchRad = -simData.PitchRad;
-			AircraftData.YawRad = simData.YawRad;
+			AircraftData.YawTrueRad = simData.YawTrueRad;
+			AircraftData.YawMagneticRad = simData.YawMagneticRad;
 			AircraftData.RollRad = -simData.RollRad;
 
 			AircraftData.AirSpeedMs = KnotsToMetersPerSecond(simData.AirSpeedKt);
@@ -203,7 +204,7 @@ public partial class MainWindow : Window {
 				AircraftPacket.LongitudeRad = (float) AircraftData.LongitudeRad;
 
 				AircraftPacket.PitchRad = (float) AircraftData.PitchRad;
-				AircraftPacket.YawRad = (float) AircraftData.YawRad;
+				AircraftPacket.YawRad = (float) AircraftData.YawTrueRad;
 				AircraftPacket.RollRad = (float) AircraftData.RollRad;
 
 				AircraftPacket.SlipAndSkid = (ushort) ((Math.Clamp(AircraftData.Computed.SlipAndSkidG, -1, 1) + 1d) / 2d * 0xFFFF);
@@ -272,7 +273,7 @@ public partial class MainWindow : Window {
 				var rotated = delta;
 				rotated = RotateAroundZAxis(rotated, -AircraftData.LongitudeRad);
 				rotated = RotateAroundYAxis(rotated, -Math.PI / 2d + AircraftData.LatitudeRad);
-				rotated = RotateAroundZAxis(rotated,AircraftData.YawRad);
+				rotated = RotateAroundZAxis(rotated,AircraftData.YawTrueRad);
 
 				//Debug.WriteLine($"[FPV] Rotated: {rotated.X} x {rotated.Y} x {rotated.Z}");
 

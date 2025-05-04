@@ -54,7 +54,8 @@ public class AircraftData {
 	public double LongitudeRad = 0;
 
 	public double PitchRad = 0;
-	public double YawRad = 0;
+	public double YawTrueRad = 0;
+	public double YawMagneticRad = 0;
 	public double RollRad = 0;
 
 	public double PressureHPa = 0;
