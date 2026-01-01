@@ -81,28 +81,7 @@ namespace PullTickSimConnectServer {
 				var buffer = new byte[4096];
 
 				while (true) {
-					// Reading
-					do {
-						await stream.ReadExactlyAsync(buffer, 0, MainWindow.RemotePacketSize, StopCTS!.Token);
-
-						lock (MainWindow.RemotePacketSyncRoot) {
-							MainWindow.RemotePacket = BytesToStruct<RemotePacket>(buffer);
-						}
-
-						MainWindow.HandleReceivedRemotePacket();
-					}
-					while (client.Available > 0);
-
-					// Writing
-					MainWindow.PrepareAircraftPacketToSend();
-
-					lock (MainWindow.AircraftPacketSyncRoot) {
-						StructToBytes(MainWindow.AircraftPacket, buffer);
-					}
-
-					stream.Write(buffer, 0, MainWindow.AircraftPacketSize);
-
-					//Thread.Sleep(1000 / 30);
+					
 				}
 
 			}
@@ -113,22 +92,6 @@ namespace PullTickSimConnectServer {
 			Debug.WriteLine("[TCP] Client disconnected");
 		}
 
-		static unsafe void StructToBytes<T>(T value, byte[] buffer) where T : unmanaged {
-			var pointer = (byte*) &value;
-
-			for (int i = 0; i < sizeof(T); i++)
-				buffer[i] = pointer[i];
-		}
-
-		static unsafe T BytesToStruct<T>(byte[] buffer) where T : unmanaged {
-			T value = default;
-
-			var pointer = (byte*) &value;
-
-			for (int i = 0; i < sizeof(T); i++)
-				pointer[i] = buffer[i];
-
-			return value;
-		}
+		
 	}
 }

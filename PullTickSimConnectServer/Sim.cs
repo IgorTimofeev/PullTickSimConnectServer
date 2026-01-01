@@ -184,7 +184,7 @@ public class Sim {
 					while (true) {
 						//Debug.WriteLine("Sim recv enter");
 
-						MainWindow.RemoteDataToSimEvents();
+						MainWindow.AicraftDataToSimEvents();
 						RequestData();
 						SimConnect!.ReceiveMessage();
 
@@ -276,7 +276,7 @@ public class Sim {
 
 	void OnRecvSimobjectDataByType(SimConnect sender, SIMCONNECT_RECV_SIMOBJECT_DATA_BYTYPE data) {
 		if (data.dwRequestID == 0) {
-			MainWindow.SimDataToAircraftData((SimData) data.dwData[0]);
+			MainWindow.SimDataToSimmData((SimData) data.dwData[0]);
 		}
 		else {
 			Debug.WriteLine($"Unknown request ID: {data.dwRequestID}");
