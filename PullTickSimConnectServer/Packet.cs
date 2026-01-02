@@ -18,6 +18,9 @@ namespace PullTickSimConnectServer
 		public float Throttle = 0;
 		public float Ailerons = 0;
 		public float Elevator = 0;
+		public float Rudder = 0;
+		public float Flaps = 0;
+		public byte Lights = 0;
 	}
 
 	[StructLayout(LayoutKind.Sequential, Pack = 1)]

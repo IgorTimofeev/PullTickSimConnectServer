@@ -28,23 +28,23 @@ public partial class MainWindow : Window {
 		Sim = new(this);
 		Sim.IsConnectedChanged += UpdateStatus;
 
+		// UART
+		Serial.IsConnectedChanged += UpdateStatus;
+
 		// Controls
-		TCPPortTextBox.Text = App.Settings.port.ToString();
+		PortTextBox.Text = App.Settings.UARTPort;
 
 		Loaded += (s, e) => {
 			Sim.Start();
 
 			// Serial
 			Serial.DataReceived += OnSerialDataReceived;
-
-			Serial.Start();
+			Serial.Start(App.Settings.UARTPort);
+			Serial.Connect();
 
 			UpdateStatus();
 		};
 	}
-
-	public const float EarthEquatorialRadiusM = 6378137f;
-	public const float EarchPolarRadiusM = 6356752.3142f;
 
 	public object AicraftDataSyncRoot { get; init; } = new object();
 	public object AircraftPacketSyncRoot { get; init; } = new object();
@@ -52,10 +52,7 @@ public partial class MainWindow : Window {
 	public object SimmDataSyncRoot { get; init; } = new object();
 	public object SimmPacketSyncRoot { get; init; } = new object();
 
-	public AircraftPacket AircraftPacket = new() {
-		
-	};
-
+	public AircraftPacket AircraftPacket = new();
 	public SimPacket SimPacket = new();
 
 	public SimmData SimmData { get; init; } = new();
@@ -65,7 +62,7 @@ public partial class MainWindow : Window {
 	public static unsafe int AircraftPacketSize => sizeof(SimPacket);
 
 	readonly Sim Sim;
-	Serial Serial = new();
+	readonly Serial Serial = new();
 
 	public void SimDataToSimmData(SimData simData) {
 		// Sim data
@@ -88,21 +85,13 @@ public partial class MainWindow : Window {
 
 	public void AicraftDataToSimEvents() {
 		lock (AicraftData) {
-			// Throttle
 			Sim.SendThrottle1Event(AicraftData.Throttle);
 			Sim.SendThrottle2Event(AicraftData.Throttle);
 
 			Sim.SendElevatorEvent(AicraftData.Elevator);
 			Sim.SendAileronsEvent(1 - AicraftData.Ailerons);
-
-			////Sim.SendRudderEvent(1 - RemoteData.Rudder);
-
-			//Sim.SendFlapsEvent(AicraftData.Flaps);
-			//Sim.SendSpoilersEvent(AicraftData.Spoilers);
-
-			////Sim.SendGearSetEvent(RemoteData.LandingGear);
-
-			//Sim.SendAltimeterPressureEvent(AicraftData.AltimeterPressurePa);
+			Sim.SendRudderEvent(1 - AicraftData.Rudder);
+			Sim.SendFlapsEvent(AicraftData.Flaps);
 		}
 	}
 
@@ -112,6 +101,9 @@ public partial class MainWindow : Window {
 				AicraftData.Throttle = AircraftPacket.Throttle;
 				AicraftData.Ailerons = AircraftPacket.Ailerons;
 				AicraftData.Elevator = AircraftPacket.Elevator;
+				AicraftData.Rudder = AircraftPacket.Rudder;
+				AicraftData.Flaps = AircraftPacket.Flaps;
+				AicraftData.Lights = AircraftPacket.Lights;
 			}
 		}
 	}
@@ -196,7 +188,7 @@ public partial class MainWindow : Window {
 	}
 
 	void UpdateStatus() {
-		var state = Sim.IsConnected;
+		var state = Serial.IsConnected && Sim.IsConnected;
 
 		StatusEllipse.Stroke = (SolidColorBrush) Application.Current.Resources[
 			state
@@ -210,7 +202,7 @@ public partial class MainWindow : Window {
 
 		BackgroundRectangle.StrokeThickness = state ? 1 : 0;
 
-		TCPStatusRun.Text = true ? "running" : "stopped";
+		UARTStatusRun.Text = Serial.IsConnected ? "running" : "not connected";
 		SimStatusRun.Text = Sim.IsConnected ? "running" : "not found";
 	}
 
@@ -223,9 +215,6 @@ public partial class MainWindow : Window {
 		//	//LogTextBox.ScrollToEnd();
 		//});
 
-		var text = Encoding.UTF8.GetString(RXBuffer);
-		Debug.WriteLine(text);
-
 		// Reading
 		lock (AircraftPacketSyncRoot) {
 			AircraftPacket = BytesToStruct<AircraftPacket>(RXBuffer);
@@ -235,7 +224,8 @@ public partial class MainWindow : Window {
 			HandleReceivedPacket();
 		}
 		else {
-			Debug.WriteLine($"RX header mismatch: {AircraftPacket.Header}");
+			var text = Encoding.UTF8.GetString(RXBuffer);
+			Debug.WriteLine(text);
 		}
 
 		// Writing
@@ -256,14 +246,20 @@ public partial class MainWindow : Window {
 		if (e.Key is not Key.Enter)
 			return;
 
-		FocusManager.SetFocusedElement(FocusManager.GetFocusScope(TCPPortTextBox), null);
+		FocusManager.SetFocusedElement(FocusManager.GetFocusScope(PortTextBox), null);
 		Keyboard.ClearFocus();
 	}
 
 	void OnPortTextBoxLostFocus(object sender, RoutedEventArgs e) {
-		if (!int.TryParse(TCPPortTextBox.Text, out var port))
-			return;
+		Serial.ChangeName(PortTextBox.Text);
+	}
 
-		
+	void OnStatusImageClick(object sender, MouseButtonEventArgs e) {
+		if (Serial.IsConnected) {
+			Serial.Disconnect();
+		}
+		else {
+			Serial.Connect();
+		}
 	}
 }

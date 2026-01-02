@@ -87,7 +87,8 @@
 			Source="/Resources/Images/LogoOn.png"
 			HorizontalAlignment="Left"
 			Stretch="Uniform"
-			MouseDown="OnTopPanelMouseDown"
+			Cursor="Hand"
+			MouseDown="OnStatusImageClick"
 		>
 			<Image.ToolTip>
 				<ToolTip
@@ -99,8 +100,8 @@
 							FontSize="12"
 						>
 							<TextBlock.Inlines>
-								<Run Foreground="{StaticResource ThemeAccent1}">Socket server: </Run>
-								<Run x:Name="TCPStatusRun"/>
+								<Run Foreground="{StaticResource ThemeAccent1}">UART: </Run>
+								<Run x:Name="UARTStatusRun"/>
 							</TextBlock.Inlines>
 						</TextBlock>
 				
@@ -110,7 +111,7 @@
 							FontSize="12"	
 						>
 							<TextBlock.Inlines>
-								<Run Foreground="{StaticResource ThemeAccent1}">Flight simulator: </Run>
+								<Run Foreground="{StaticResource ThemeAccent1}">Simulator: </Run>
 								<Run x:Name="SimStatusRun"/>
 							</TextBlock.Inlines>
 						</TextBlock>
@@ -146,10 +147,11 @@
 						FontSize="14"
 						TextAlignment="Center"
 						Text="Port"
+						MouseDown="OnTopPanelMouseDown"
 					/>
 					
 					<TextBox
-						x:Name="TCPPortTextBox"
+						x:Name="PortTextBox"
 						Grid.Row="1"
 						Padding="10,0,10,5"
 						HorizontalContentAlignment="Center"
@@ -159,7 +161,7 @@
 						CaretBrush="{StaticResource ThemeCaret}"
 						FontFamily="{StaticResource FontSevenSegment}"
 						FontSize="36"
-						Text="25569"
+						Text="COM5"
 						KeyUp="OnPortTextBoxKeyUp"
 						LostFocus="OnPortTextBoxLostFocus"
 					>
@@ -198,7 +200,6 @@
 						</TextBox.Style>
 					</TextBox>
 				</Grid>
-		
 			</Border>
 				
 			<StackPanel

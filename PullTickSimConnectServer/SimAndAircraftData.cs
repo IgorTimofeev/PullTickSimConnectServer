@@ -10,6 +10,9 @@ public class AicraftData {
 	public double Throttle = 1;
 	public double Ailerons = 1;
 	public double Elevator = 1;
+	public double Rudder = 1;
+	public double Flaps = 1;
+	public byte Lights = 0;
 }
 
 public class SimmData {

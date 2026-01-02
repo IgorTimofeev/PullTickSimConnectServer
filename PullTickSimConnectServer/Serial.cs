@@ -13,16 +13,24 @@ namespace Pizda;
 
 public class Serial {
 	public Serial() {
-
+		
 	}
 
-	SerialPort SerialPort = new("COM5", 115200, Parity.None, 8, StopBits.One);
-	ConcurrentQueue<byte[]> PacketQueue = [];
-	AutoResetEvent WritingARE = new(false);
+	readonly SerialPort SerialPort = new("COM5", 115200, Parity.None, 8, StopBits.One);
+	readonly ConcurrentQueue<byte[]> PacketQueue = [];
+	readonly AutoResetEvent WritingARE = new(false);
 
 	public event Action<byte[]>? DataReceived = null;
 
+	bool _IsConnectedPizda = false;
+	public bool IsConnected => _IsConnectedPizda && SerialPort.IsOpen;
+
+	public event Action? IsConnectedChanged;
+
 	public void EnqueueWriting(byte[] packet) {
+		if (!_IsConnectedPizda)
+			return;
+
 		PacketQueue.Enqueue(packet);
 		WritingARE.Set();
 	}
@@ -36,19 +44,23 @@ public class Serial {
 			}
 		}
 		catch (Exception ex) {
-			Debug.WriteLine("Serial reading exception");
+			Debug.WriteLine($"Serial reading exception: {ex.Message}");
 		}
 	}
 
 	void SerialLifeCheckerThreadBody() {
 		while (true) {
 			try {
-				if (!SerialPort.IsOpen) {
-					SerialPort.Open();
+				lock (SerialPort) {
+					if (_IsConnectedPizda && !SerialPort.IsOpen) {
+						SerialPort.Open();
+
+						IsConnectedChanged?.Invoke();
+					}
 				}
 			}
 			catch (Exception ex) {
-				Debug.WriteLine("Serial life checker exception");
+				Debug.WriteLine($"Serial life checker exception: {ex.Message}");
 			}
 			finally {
 				Thread.Sleep(2000);
@@ -80,7 +92,7 @@ public class Serial {
 				}
 			}
 			catch (Exception ex) {
-				Debug.WriteLine("Serial writing exception");
+				Debug.WriteLine($"Serial writing exception: {ex.Message}");
 
 				Thread.Sleep(1000);
 			}
@@ -90,7 +102,8 @@ public class Serial {
 		}
 	}
 
-	public void Start() {
+	public void Start(string name) {
+		SerialPort.PortName = name;
 		SerialPort.DataReceived += OnDataReceived;
 
 		new Thread(SerialLifeCheckerThreadBody) {
@@ -104,5 +117,54 @@ public class Serial {
 			IsBackground = true
 		}
 		.Start();
+	}
+
+	public void Connect() {
+		if (_IsConnectedPizda)
+			return;
+
+		_IsConnectedPizda = true;
+
+		try {
+			lock (SerialPort) {
+				SerialPort.Open();
+
+				IsConnectedChanged?.Invoke();
+			}
+		}
+		catch (Exception ex) {
+			Debug.WriteLine($"Serial connect exception: {ex.Message}");
+		}
+	}
+
+	public void Disconnect() {
+		if (!_IsConnectedPizda)
+			return;
+
+		_IsConnectedPizda = false;
+
+		try {
+			lock (SerialPort) {
+				SerialPort.Close();
+
+				IsConnectedChanged?.Invoke();
+			}
+		}
+		catch (Exception ex) {
+			Debug.WriteLine($"Serial connect exception: {ex.Message}");
+		}
+	}
+
+	public void ChangeName(string name) {
+		try {
+			lock (SerialPort) {
+				SerialPort.Close();
+				SerialPort.PortName = name;
+				SerialPort.Open();
+			}
+		}
+		catch (Exception ex) {
+			Debug.WriteLine($"Serial changeName exception: {ex.Message}");
+		}
 	}
 }

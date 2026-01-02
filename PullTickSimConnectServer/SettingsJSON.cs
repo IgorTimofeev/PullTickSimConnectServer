@@ -1,5 +1,5 @@
 ﻿namespace PullTickSimConnectServer;
 
 public class SettingsJSON {
-	public int port = 25569;
+	public string UARTPort = "COM5";
 }
