@@ -116,7 +116,7 @@ public class Sim {
 
 			_IsConnected = value;
 
-			MainWindow.Dispatcher.BeginInvoke(() => IsConnectedChanged?.Invoke());
+			IsConnectedChanged?.Invoke();
 		}
 	}
 

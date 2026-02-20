@@ -26,10 +26,15 @@ public partial class MainWindow : Window {
 
 		// Sim
 		Sim = new(this);
-		Sim.IsConnectedChanged += UpdateStatus;
+
+		Sim.IsConnectedChanged += () => Dispatcher.BeginInvoke(() => {
+			UpdateStatus();
+		});
 
 		// UART
-		Serial.IsConnectedChanged += UpdateStatus;
+		Serial.IsConnectedChanged += () => Dispatcher.BeginInvoke(() => {
+			UpdateStatus();
+		});
 
 		// Controls
 		PortTextBox.Text = App.Settings.UARTPort;
@@ -39,27 +44,27 @@ public partial class MainWindow : Window {
 
 			// Serial
 			Serial.DataReceived += OnSerialDataReceived;
-			Serial.Start(App.Settings.UARTPort);
+			Serial.Start("COM3");
 			Serial.Connect();
 
 			UpdateStatus();
 		};
 	}
 
-	public object AicraftDataSyncRoot { get; init; } = new object();
 	public object AircraftPacketSyncRoot { get; init; } = new object();
-
-	public object SimmDataSyncRoot { get; init; } = new object();
-	public object SimmPacketSyncRoot { get; init; } = new object();
-
 	public AircraftPacket AircraftPacket = new();
+	
+	public object SimPacketSyncRoot { get; init; } = new object();
 	public SimPacket SimPacket = new();
 
+	public object SimmDataSyncRoot { get; init; } = new object();
 	public SimmData SimmData { get; init; } = new();
+
+	public object AicraftDataSyncRoot { get; init; } = new object();
 	public AicraftData AicraftData { get; init; } = new();
 
-	public static unsafe int RemotePacketSize => sizeof(AircraftPacket);
-	public static unsafe int AircraftPacketSize => sizeof(SimPacket);
+	public static unsafe int AircraftPacketSize => sizeof(AircraftPacket);
+	public static unsafe int SimPacketSize => sizeof(SimPacket);
 
 	readonly Sim Sim;
 	readonly Serial Serial = new();
@@ -110,7 +115,7 @@ public partial class MainWindow : Window {
 
 	public void SimmDataToSimmPacket() {
 		lock (SimmDataSyncRoot) {
-			lock (SimmPacketSyncRoot) {
+			lock (SimPacketSyncRoot) {
 				SimPacket.Header = Packet.Header;
 
 				SimPacket.AccelerationX = (float) SimmData.AccelerationX;
@@ -216,24 +221,26 @@ public partial class MainWindow : Window {
 		//});
 
 		// Reading
-		lock (AircraftPacketSyncRoot) {
-			AircraftPacket = BytesToStruct<AircraftPacket>(RXBuffer);
-		}
+		if (RXBuffer.Length >= AircraftPacketSize) {
+			lock (AircraftPacketSyncRoot) {
+				AircraftPacket = BytesToStruct<AircraftPacket>(RXBuffer);
+			}
 
-		if (AircraftPacket.Header == Packet.Header) {
-			HandleReceivedPacket();
-		}
-		else {
-			var text = Encoding.UTF8.GetString(RXBuffer);
-			Debug.WriteLine(text);
+			if (AircraftPacket.Header == Packet.Header) {
+				HandleReceivedPacket();
+			}
+			else {
+				var text = Encoding.UTF8.GetString(RXBuffer);
+				Debug.WriteLine(text);
+			}
 		}
 
 		// Writing
 		PrepareSimmPacketToSend();
 
-		var TXBuffer = new byte[AircraftPacketSize];
+		var TXBuffer = new byte[SimPacketSize];
 
-		lock (AircraftPacketSyncRoot) {
+		lock (SimPacketSyncRoot) {
 			StructToBytes(SimPacket, TXBuffer);
 		}
 
@@ -251,7 +258,8 @@ public partial class MainWindow : Window {
 	}
 
 	void OnPortTextBoxLostFocus(object sender, RoutedEventArgs e) {
-		Serial.ChangeName(PortTextBox.Text);
+		App.Settings.UARTPort = PortTextBox.Text;
+		Serial.ChangeName(App.Settings.UARTPort);
 	}
 
 	void OnStatusImageClick(object sender, MouseButtonEventArgs e) {

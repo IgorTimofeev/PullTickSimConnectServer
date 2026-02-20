@@ -16,14 +16,16 @@ public class Serial {
 		
 	}
 
-	readonly SerialPort SerialPort = new("COM5", 115200, Parity.None, 8, StopBits.One);
+	SerialPort? SerialPort = null;
 	readonly ConcurrentQueue<byte[]> PacketQueue = [];
 	readonly AutoResetEvent WritingARE = new(false);
+
+	readonly object SerialPortSyncRoot = new();
 
 	public event Action<byte[]>? DataReceived = null;
 
 	bool _IsConnectedPizda = false;
-	public bool IsConnected => _IsConnectedPizda && SerialPort.IsOpen;
+	public bool IsConnected => _IsConnectedPizda && SerialPort?.IsOpen is true;
 
 	public event Action? IsConnectedChanged;
 
@@ -37,7 +39,7 @@ public class Serial {
 
 	async void OnDataReceived(object s, SerialDataReceivedEventArgs e) {
 		try {
-			if (SerialPort.BytesToRead > 0) {
+			if (SerialPort?.BytesToRead > 0) {
 				var buffer = new byte[SerialPort.BytesToRead];
 				var bytesRead = await SerialPort.BaseStream.ReadAsync(buffer);
 				DataReceived?.Invoke(buffer);
@@ -51,8 +53,8 @@ public class Serial {
 	void SerialLifeCheckerThreadBody() {
 		while (true) {
 			try {
-				lock (SerialPort) {
-					if (_IsConnectedPizda && !SerialPort.IsOpen) {
+				lock (SerialPortSyncRoot) {
+					if (_IsConnectedPizda && SerialPort?.IsOpen is false) {
 						SerialPort.Open();
 
 						IsConnectedChanged?.Invoke();
@@ -79,7 +81,7 @@ public class Serial {
 
 					// Trying to send until success
 					while (true) {
-						if (SerialPort.IsOpen) {
+						if (SerialPort?.IsOpen is true) {
 							await SerialPort.BaseStream.WriteAsync(packet);
 							break;
 						}
@@ -103,7 +105,8 @@ public class Serial {
 	}
 
 	public void Start(string name) {
-		SerialPort.PortName = name;
+		SerialPort?.Dispose();
+		SerialPort = new(name, 115200, Parity.None, 8, StopBits.One);
 		SerialPort.DataReceived += OnDataReceived;
 
 		new Thread(SerialLifeCheckerThreadBody) {
@@ -126,8 +129,8 @@ public class Serial {
 		_IsConnectedPizda = true;
 
 		try {
-			lock (SerialPort) {
-				SerialPort.Open();
+			lock (SerialPortSyncRoot) {
+				SerialPort?.Open();
 
 				IsConnectedChanged?.Invoke();
 			}
@@ -144,8 +147,8 @@ public class Serial {
 		_IsConnectedPizda = false;
 
 		try {
-			lock (SerialPort) {
-				SerialPort.Close();
+			lock (SerialPortSyncRoot) {
+				SerialPort?.Close();
 
 				IsConnectedChanged?.Invoke();
 			}
@@ -157,10 +160,10 @@ public class Serial {
 
 	public void ChangeName(string name) {
 		try {
-			lock (SerialPort) {
-				SerialPort.Close();
-				SerialPort.PortName = name;
-				SerialPort.Open();
+			lock (SerialPortSyncRoot) {
+				SerialPort?.Close();
+				SerialPort?.PortName = name;
+				SerialPort?.Open();
 			}
 		}
 		catch (Exception ex) {
